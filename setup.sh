@@ -47,8 +47,10 @@ DEBIAN_FRONTEND=noninteractive apt-get install -y \
     curl wget zip unzip tar jq git cron vnstat dropbear net-tools \
     iptables iptables-persistent sqlite3 python3 python3-pip python3-venv wireguard
 
-pip3 install --upgrade pip
-pip3 install python-telegram-bot[job-queue] requests urllib3 pyfiglet
+# Remove EXTERNALLY-MANAGED flag if present and install python requirements
+rm -f /usr/lib/python3.*/EXTERNALLY-MANAGED 2>/dev/null || true
+pip3 install --upgrade pip --break-system-packages --ignore-installed 2>/dev/null || true
+pip3 install --break-system-packages python-telegram-bot[job-queue] requests urllib3 pyfiglet
 
 echo -e "${CYAN}[2/7] Menginstall Ookla Speedtest CLI Resmi...${NC}"
 if ! command -v speedtest &>/dev/null; then
