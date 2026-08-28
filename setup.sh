@@ -54,12 +54,11 @@ pip3 install --break-system-packages python-telegram-bot[job-queue] requests url
 
 echo -e "${CYAN}[2/7] Menginstall Ookla Speedtest CLI Resmi...${NC}"
 if ! command -v speedtest &>/dev/null; then
-    # Fallback to direct binary download for new Ubuntu releases (e.g. 24.04/26.04) if apt repo lacks release codename
-    curl -s https://packagecloud.io/install/repositories/ookla/speedtest-cli/script.deb.sh | bash 2>/dev/null || true
-    apt-get install -y speedtest 2>/dev/null || {
-        wget -qO- https://install.speedtest.net/app/cli/ookla-speedtest-1.2.0-linux-x86_64.tgz | tar -xz -C /usr/local/bin/ speedtest 2>/dev/null || true
-        chmod +x /usr/local/bin/speedtest 2>/dev/null || true
-    }
+    # Direct binary install (works on all Ubuntu versions without apt repo issues)
+    wget -qO /tmp/speedtest.tgz https://install.speedtest.net/app/cli/ookla-speedtest-1.2.0-linux-x86_64.tgz
+    tar -xzf /tmp/speedtest.tgz -C /usr/local/bin/ speedtest 2>/dev/null || true
+    chmod +x /usr/local/bin/speedtest 2>/dev/null || true
+    rm -f /tmp/speedtest.tgz
 fi
 
 echo -e "${CYAN}[3/7] Menginstall Core Xray & BadVPN UDP-Gateway...${NC}"
