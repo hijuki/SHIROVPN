@@ -521,13 +521,17 @@ def execute_system_create(proto, user, password, days=30, ip_limit=2, quota="100
 
     # Natural Telegram Notification
     buyer_tag = f"@{user_name}" if user_name else f"ID {user_id}"
+    is_trial = exp_override and "Menit" in exp_override
+    dur_str = "30 Menit (Trial)" if is_trial else f"{days} Hari"
+    title_header = "🎁 <b>AKUN TRIAL BERHASIL DIBUAT</b>" if is_trial else "⚡ <b>AKUN BARU BERHASIL DIBUAT</b>"
+
     notif_card = (
-        f"⚡ <b>AKUN BARU BERHASIL DIBUAT</b>\n"
+        f"{title_header}\n"
         f"━━━━━━━━━━━━━━━━━━━━━━\n"
         f"👤 <b>Pembeli</b>  : {buyer_tag} (<code>{user_id}</code>)\n"
         f"🔑 <b>Akun</b>     : <code>{user}</code>\n"
         f"🔌 <b>Protokol</b> : <b>{proto.upper()}</b>\n"
-        f"⏳ <b>Durasi</b>   : {days} Hari\n"
+        f"⏳ <b>Durasi</b>   : {dur_str}\n"
         f"📦 <b>Kuota</b>    : {quota}\n"
         f"🌐 <b>Limit IP</b> : {ip_limit} IP\n"
         f"📅 <b>Expired</b>  : <code>{exp_str}</code>\n"
