@@ -222,7 +222,8 @@ def check_expired_accounts():
                         hours_left = max(1, int(time_left // 3600))
                         remind_markup = {
                             "inline_keyboard": [
-                                [{"text": "🔄 PERPANJANG / CEK AKUN", "url": f"https://t.me/{bot_user_tag}"}]
+                                [{"text": "🔄 PERPANJANG AKUN SEKARANG", "url": f"https://t.me/{bot_user_tag}?start=renew_{acc_id}"}],
+                                [{"text": "⚙️ TOGGLE AUTO-RENEW (ON/OFF)", "url": f"https://t.me/{bot_user_tag}?start=acc_{acc_id}"}]
                             ]
                         }
                         send_alert_box(
@@ -236,7 +237,7 @@ def check_expired_accounts():
                                 "📅 <b>Kedaluwarsa</b>": f"<code>{exp_str}</code>",
                                 "⚙️ <b>Auto-Renew</b> ": "<b>🟢 AKTIF</b>" if auto_rn == 1 else "<b>⚪ NONAKTIF</b>"
                             },
-                            footer="Masa aktif akun Anda akan segera habis dalam 24 jam. Segera perpanjang akun atau aktifkan Auto-Renew.",
+                            footer="Masa aktif akun Anda akan segera habis dalam 24 jam. Gunakan tombol di bawah untuk perpanjang atau aktifkan Auto-Renew.",
                             direct_user_id=user_id,
                             reply_markup=remind_markup
                         )

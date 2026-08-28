@@ -545,6 +545,36 @@ async def start_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_data = get_user(u.id, u.username)
     st = get_server_stats()
 
+    # Handle deep-link arguments (e.g. /start renew_12 or /start acc_12)
+    if context.args and len(context.args) > 0:
+        arg = context.args[0]
+        if arg.startswith("renew_") or arg.startswith("acc_"):
+            try:
+                aid = int(arg.replace("renew_", "").replace("acc_", ""))
+                context.user_data["temp_acc_id"] = aid
+                if update.message:
+                    conn = sqlite3.connect(DB_PATH)
+                    c = conn.cursor()
+                    c.execute("SELECT username, protocol, uuid_or_pass, exp_date, password, ip_limit, quota_gb, config_link, auto_renew FROM accounts WHERE id=?", (aid,))
+                    row = c.fetchone()
+                    conn.close()
+                    if row:
+                        uname, proto, uid_p, exp_s, pwd, ip_l, q_gb, cfg_l, auto_rn = row
+                        if proto == "ssh": card = format_ssh_account(uname, pwd or uid_p, exp_s, ip_limit=ip_l, quota=q_gb)
+                        elif proto == "zivpn": card = format_zivpn_account(uname, pwd or uid_p, exp_s, ip_limit=ip_l, quota=q_gb)
+                        elif proto == "wg": card = format_wg_account(uname, exp_s, cfg_l, ip_limit=ip_l, quota=q_gb)
+                        else: card = format_xray_account(proto, uname, uid_p, exp_s, ip_limit=ip_l, quota=q_gb)
+                        ar_btn_text = "⚙️ AUTO-RENEW: ON (🟢 AKTIF)" if auto_rn == 1 else "⚙️ AUTO-RENEW: OFF (⚪ NONAKTIF)"
+                        kb = [
+                            [InlineKeyboardButton("🔄 REFRESH STATUS / KUOTA", callback_data=f"acc_view_{aid}")],
+                            [InlineKeyboardButton(ar_btn_text, callback_data=f"toggle_ar_{aid}")],
+                            [InlineKeyboardButton("🔄 PERPANJANG MANUAL", callback_data=f"renew_acc_{aid}")],
+                            [InlineKeyboardButton("« KEMBALI KE DAFTAR AKUN", callback_data="menu_my_accounts")]
+                        ]
+                        await update.message.reply_text(card, reply_markup=InlineKeyboardMarkup(kb), parse_mode="HTML")
+                        return
+            except Exception: pass
+
     now_wib = datetime.datetime.now().strftime("%H:%M:%S WIB")
     date_wib = datetime.datetime.now().strftime("%A, %d %B %Y")
     role_label = "👑 Owner / Admin" if user_data["role"] == "owner" else "👤 Member"
