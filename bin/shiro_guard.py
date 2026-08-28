@@ -26,10 +26,21 @@ DB_PATH = "/var/lib/shirobot.db"
 XRAY_CONFIG = "/usr/local/etc/xray/config.json"
 ACCESS_LOG = "/var/log/xray/access.log"
 
+def get_setting(key, default=""):
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        c = conn.cursor()
+        c.execute("SELECT value FROM settings WHERE key=?", (key,))
+        row = c.fetchone()
+        conn.close()
+        return row[0] if row else default
+    except Exception:
+        return default
+
 # Persistent memory for violations: {username: {"strikes": int, "last_strike_time": float}}
 VIOLATIONS = {}
 
-def send_alert_box(title, badge, items, footer=""):
+def send_alert_box(title, badge, items, footer="", direct_user_id=None, reply_markup=None):
     try:
         sys.path.append("/usr/local/bin")
         from send_notif import send_notif
@@ -42,7 +53,7 @@ def send_alert_box(title, badge, items, footer=""):
         body.append("━━━━━━━━━━━━━━━━━━━━━━")
         if footer:
             body.append(f"ℹ️ <i>{footer}</i>")
-        send_notif("\n".join(body))
+        send_notif("\n".join(body), direct_user_id=direct_user_id, reply_markup=reply_markup)
     except Exception as e:
         print(f"Error sending alert: {e}")
 
@@ -79,17 +90,34 @@ def delete_account_complete(acc_id, user_id, username, proto, reason="MULTI-IP V
 
         VIOLATIONS.pop(username, None)
 
+        # Get bot username for direct order button
+        bot_user_tag = get_setting("admin_user", "@vpnshirobot").replace("@", "")
+        btn_markup = {
+            "inline_keyboard": [
+                [{"text": "🛒 ORDER / PERPANJANG AKUN BARU", "url": f"https://t.me/{bot_user_tag}?start=order"}]
+            ]
+        }
+
+        # Check reason type to tailor styling & message
+        is_multi_ip = "MULTI-IP" in reason.upper()
+        alert_title = "AKUN DIHAPUS - MULTI-LOGIN (2/2)" if is_multi_ip else "AKUN DIHAPUS - MASA AKTIF / KUOTA HABIS"
+        badge_icon = "🚨" if is_multi_ip else "⌛"
+        action_msg = "<code>Akun Dihapus & Banned Multi-IP</code>" if is_multi_ip else "<code>Akun Dihapus Otomatis dari Server</code>"
+        footer_msg = "Akun telah dihapus permanen oleh sistem karena terdeteksi login ganda 2 kali." if is_multi_ip else "Masa aktif atau kuota akun Anda telah habis. Silakan buat akun baru melalui bot."
+
         send_alert_box(
-            title="AKUN DIHAPUS OTOMATIS",
-            badge="🚫",
+            title=alert_title,
+            badge=badge_icon,
             items={
                 "👤 <b>Pengguna</b>  ": f"ID <code>{user_id}</code>",
                 "🔑 <b>Akun</b>      ": f"<code>{username}</code>",
                 "🔌 <b>Protokol</b>  ": f"<b>{proto.upper()}</b>",
-                "⚠️ <b>Pelanggaran</b>": f"<code>{reason}</code>",
-                "🛡️ <b>Tindakan</b>   ": "<code>Akun Dihapus & Dibanned</code>"
+                "⚠️ <b>Alasan</b>    ": f"<code>{reason}</code>",
+                "🛡️ <b>Status</b>    ": action_msg
             },
-            footer="Akun dihapus permanen oleh sistem karena telah melanggar batas multi-login 2 kali."
+            footer=footer_msg,
+            direct_user_id=user_id,
+            reply_markup=btn_markup
         )
     except Exception as e:
         print(f"Error purging account {username}: {e}")

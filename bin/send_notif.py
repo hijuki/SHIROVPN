@@ -17,36 +17,53 @@ def get_setting(key, default=""):
     except Exception:
         return default
 
-def send_notif(message):
+def send_notif(message, direct_user_id=None, reply_markup=None):
     token = get_setting("bot_token", "")
     chat_id = get_setting("notif_chat_id", "")
     thread_id = get_setting("notif_thread_id", "")
     
-    if not token or not chat_id:
-        print("ERROR: bot_token or notif_chat_id not set in DB settings.")
+    if not token:
         return
     
-    url = f"https://api.telegram.org/bot{token}/sendMessage"
-    data = {
-        "chat_id": chat_id,
-        "text": message,
-        "parse_mode": "HTML"
-    }
-    if thread_id:
-        data["message_thread_id"] = int(thread_id)
-    
-    payload = json.dumps(data).encode("utf-8")
-    req = urllib.request.Request(url, data=payload, headers={"Content-Type": "application/json"})
-    
-    try:
-        with urllib.request.urlopen(req, timeout=10) as resp:
-            result = json.loads(resp.read().decode())
-            if result.get("ok"):
-                print("Notification sent successfully.")
-            else:
-                print(f"Telegram API error: {result}")
-    except Exception as e:
-        print(f"Error sending notification: {e}")
+    # 1. Send to notification group / forum
+    if chat_id:
+        url = f"https://api.telegram.org/bot{token}/sendMessage"
+        data = {
+            "chat_id": chat_id,
+            "text": message,
+            "parse_mode": "HTML"
+        }
+        if thread_id:
+            data["message_thread_id"] = int(thread_id)
+        if reply_markup:
+            data["reply_markup"] = reply_markup
+        
+        try:
+            payload = json.dumps(data).encode("utf-8")
+            req = urllib.request.Request(url, data=payload, headers={"Content-Type": "application/json"})
+            with urllib.request.urlopen(req, timeout=10) as resp:
+                pass
+        except Exception as e:
+            print(f"Error sending group notification: {e}")
+
+    # 2. Send directly to user DM if direct_user_id provided
+    if direct_user_id:
+        url = f"https://api.telegram.org/bot{token}/sendMessage"
+        data = {
+            "chat_id": direct_user_id,
+            "text": message,
+            "parse_mode": "HTML"
+        }
+        if reply_markup:
+            data["reply_markup"] = reply_markup
+        
+        try:
+            payload = json.dumps(data).encode("utf-8")
+            req = urllib.request.Request(url, data=payload, headers={"Content-Type": "application/json"})
+            with urllib.request.urlopen(req, timeout=10) as resp:
+                pass
+        except Exception:
+            pass
 
 if __name__ == "__main__":
     if len(sys.argv) > 1:
