@@ -48,6 +48,7 @@ def _db_boot(key, fallback=""):
 BOT_TOKEN = _db_boot("bot_token", "YOUR_BOT_TOKEN_HERE")
 ADMIN_ID = int(_db_boot("admin_id", "1234567890"))
 ADMIN_USER = _db_boot("admin_user", "@YourTelegramUsername")
+BOT_USERNAME = _db_boot("bot_username", "@vpnshirobot")
 DOMAIN = _db_boot("domain", "your-domain.com")
 DB_PATH = "/var/lib/shirobot.db"
 
