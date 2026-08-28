@@ -520,6 +520,8 @@ def execute_system_create(proto, user, password, days=30, ip_limit=2, quota="100
 # /start Dashboard
 # /start Dashboard with Slot Machine Reveal Loader
 async def start_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    context.user_data["admin_typing_mode"] = ""
+    context.user_data.pop("renew_acc_id", None)
     u = update.effective_user
     user_data = get_user(u.id, u.username)
     st = get_server_stats()
@@ -1273,6 +1275,9 @@ async def admin_custom_input(update: Update, context: ContextTypes.DEFAULT_TYPE)
     u = update.effective_user
     admin_id_val = int(get_setting("admin_id", str(ADMIN_ID)))
     if u.id != admin_id_val: return
+    # If in active renew or buy conversation, DO NOT intercept!
+    if context.user_data.get("renew_acc_id") or context.user_data.get("buy_proto"):
+        return
     mode = context.user_data.get("admin_typing_mode", "")
     if not mode: return
     
@@ -1395,12 +1400,18 @@ async def admin_custom_input(update: Update, context: ContextTypes.DEFAULT_TYPE)
 async def renew_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
+    # Clear any lingering typing mode
+    context.user_data["admin_typing_mode"] = ""
     acc_id = query.data.replace("renew_acc_", "")
     u = update.effective_user
+    admin_id_val = int(get_setting("admin_id", str(ADMIN_ID)))
 
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
-    c.execute("SELECT id, username, protocol, exp_date, ip_limit, quota_gb FROM accounts WHERE id=? AND user_id=?", (acc_id, u.id))
+    if u.id == admin_id_val:
+        c.execute("SELECT id, username, protocol, exp_date, ip_limit, quota_gb FROM accounts WHERE id=?", (acc_id,))
+    else:
+        c.execute("SELECT id, username, protocol, exp_date, ip_limit, quota_gb FROM accounts WHERE id=? AND user_id=?", (acc_id, u.id))
     row = c.fetchone()
     conn.close()
 
@@ -1535,9 +1546,11 @@ async def renew_input_days(update: Update, context: ContextTypes.DEFAULT_TYPE):
         [InlineKeyboardButton("« MENU UTAMA", callback_data="menu_start")]
     ]
     await update.message.reply_text(msg, reply_markup=InlineKeyboardMarkup(kb), parse_mode="HTML")
+    context.user_data.pop("renew_acc_id", None)
     return ConversationHandler.END
 
 async def cancel_renew(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    context.user_data.pop("renew_acc_id", None)
     query = update.callback_query
     await query.answer()
     await query.edit_message_text("❌ <b>Perpanjangan akun dibatalkan.</b>", reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("« KEMBALI", callback_data="menu_my_accounts")]]), parse_mode="HTML")
