@@ -480,7 +480,15 @@ print('Bot Token saved to DB.')
             echo -e "\n${GREEN}✓ Full System & User Database Backup created:${NC}"
             echo -e "  📂 ${YELLOW}$bk_file${NC}"
         elif [ "$bk_opt" == "2" ]; then
-            read -p " Path to ZIP file: " bk_path
+            # Show latest available backup files in /root if exists
+            latest_bk=$(ls -t /root/backup_shiro_*.zip 2>/dev/null | head -n 1)
+            if [ -n "$latest_bk" ]; then
+                echo -e " 💡 Ditemukan backup terbaru: ${GREEN}$latest_bk${NC}"
+                read -p " Path to ZIP file [Default: $latest_bk]: " bk_path
+                [ -z "$bk_path" ] && bk_path="$latest_bk"
+            else
+                read -p " Path to ZIP file: " bk_path
+            fi
             if [ -f "$bk_path" ]; then
                 unzip -o "$bk_path" -d /root >/dev/null
                 [ -f /root/backup_shiro/shirobot.db ] && cp /root/backup_shiro/shirobot.db /var/lib/
@@ -495,7 +503,7 @@ print('Bot Token saved to DB.')
                 chmod +x /usr/local/bin/*.py 2>/dev/null
                 [ -d /root/backup_shiro/systemd ] && cp /root/backup_shiro/systemd/* /etc/systemd/system/ 2>/dev/null
                 systemctl daemon-reload
-                systemctl restart xray ssh dropbear ws-dropbear zivpn wg-quick@wg0 shirobot shiro-guard 2>/dev/null
+                systemctl restart xray ssh dropbear ws-dropbear zivpn wg-quick@wg0 shirobot shiro-guard shiro-traffic 2>/dev/null
                 rm -rf /root/backup_shiro
                 echo -e "\n${GREEN}✓ Full Data Restored & All Services Reloaded Successfully!${NC}"
             else
