@@ -1,22 +1,14 @@
 #!/usr/bin/env python3
 """
-Shiro Traffic Collector - per-user bandwidth accounting.
-
-Sources:
-  - Xray stats API (vless/vmess/trojan/ss)  -> `xray api statsquery`
-  - WireGuard peer transfer                 -> `wg show wg0 transfer`
-
-NOTE: this daemon NEVER touches iptables. An earlier version inserted
-owner-match rules into the OUTPUT chain on every loop; the -C check could
-fail repeatedly and the rules piled up until all outbound traffic (including
-sshd banners and the Xray TLS handshake) was dropped, locking the box out.
-SSH byte accounting is therefore intentionally not implemented here.
-ponytail: SSH/ZiVPN usage is not counted. If needed, add a dedicated
-nftables counter table set up ONCE at install time, never from this loop.
+Shiro Traffic Collector - per-user bandwidth accounting for:
+  - Xray Core (vless / vmess / trojan / ss) -> via statsquery API
+  - WireGuard (wg0)                        -> via wg show wg0 transfer
+  - SSH / OpenSSH / Dropbear               -> via safe iptables accounting chain (SHIRO_SSH)
 """
 import json
 import os
 import re
+import pwd
 import sqlite3
 import subprocess
 import time
@@ -25,18 +17,76 @@ DB_PATH = "/var/lib/shirobot.db"
 XRAY_BIN = "/usr/local/bin/xray"
 XRAY_API = "127.0.0.1:10085"
 STATE_DIR = "/var/lib/shiro_traffic"
-INTERVAL = 20
+INTERVAL = 10
 
 os.makedirs(STATE_DIR, exist_ok=True)
-
 
 def db():
     return sqlite3.connect(DB_PATH, timeout=10)
 
+def init_ssh_iptables_chain():
+    """Ensure SHIRO_SSH accounting chain exists and is attached to OUTPUT & INPUT (RETURN only, no drop)."""
+    try:
+        subprocess.run(["iptables", "-N", "SHIRO_SSH"], capture_output=True)
+        out_chk = subprocess.run(["iptables", "-C", "OUTPUT", "-j", "SHIRO_SSH"], capture_output=True)
+        if out_chk.returncode != 0:
+            subprocess.run(["iptables", "-I", "OUTPUT", "1", "-j", "SHIRO_SSH"], capture_output=True)
+    except Exception:
+        pass
+
+def sync_ssh_iptables_rules():
+    """Sync iptables rules for all active SSH accounts in DB."""
+    try:
+        conn = db()
+        c = conn.cursor()
+        c.execute("SELECT username FROM accounts WHERE protocol='ssh'")
+        ssh_users = [row[0] for row in c.fetchall()]
+        conn.close()
+
+        # Get existing rules in SHIRO_SSH
+        out = subprocess.run(["iptables", "-L", "SHIRO_SSH", "-n"], capture_output=True, text=True).stdout
+        existing_uids = set(re.findall(r"OWNER UID match (\d+)", out))
+
+        for u in ssh_users:
+            try:
+                p_uid = str(pwd.getpwnam(u).pw_uid)
+                if p_uid not in existing_uids:
+                    subprocess.run(["iptables", "-A", "SHIRO_SSH", "-m", "owner", "--uid-owner", p_uid, "-j", "RETURN"], capture_output=True)
+            except KeyError:
+                continue
+    except Exception:
+        pass
+
+# ---------- SSH TRAFFIC VIA IPTABLES ----------
+def collect_ssh():
+    totals = {}
+    try:
+        out = subprocess.run(["iptables", "-L", "SHIRO_SSH", "-v", "-n", "-x"], capture_output=True, text=True).stdout
+        uid_bytes = {}
+        for line in out.strip().splitlines():
+            m = re.search(r"^\s*\d+\s+(\d+)\s+RETURN.*OWNER UID match (\d+)", line)
+            if m:
+                b, uid = int(m.group(1)), int(m.group(2))
+                uid_bytes[uid] = uid_bytes.get(uid, 0) + b
+
+        # Map UID back to DB username
+        conn = db()
+        c = conn.cursor()
+        c.execute("SELECT username FROM accounts WHERE protocol='ssh'")
+        for (u,) in c.fetchall():
+            try:
+                p_uid = pwd.getpwnam(u).pw_uid
+                if p_uid in uid_bytes:
+                    totals[u] = uid_bytes[p_uid]
+            except KeyError:
+                continue
+        conn.close()
+    except Exception:
+        pass
+    return totals
 
 # ---------- XRAY (vless / vmess / trojan / ss) ----------
 def collect_xray():
-    """Absolute cumulative bytes per user, keyed by username."""
     try:
         out = subprocess.run(
             [XRAY_BIN, "api", "statsquery", f"--server={XRAY_API}"],
@@ -62,7 +112,6 @@ def collect_xray():
             uname = m.group(1).split("@")[0]
             totals[uname] = totals.get(uname, 0) + value
     return totals
-
 
 # ---------- WIREGUARD ----------
 def collect_wireguard():
@@ -109,7 +158,6 @@ def collect_wireguard():
             continue
     return totals
 
-
 # ---------- SNAPSHOT / DELTA ----------
 def load_snapshot(source):
     path = os.path.join(STATE_DIR, f"{source}.snap")
@@ -128,7 +176,6 @@ def load_snapshot(source):
             pass
     return snap
 
-
 def save_snapshot(source, data):
     path = os.path.join(STATE_DIR, f"{source}.snap")
     tmp = path + ".tmp"
@@ -137,9 +184,7 @@ def save_snapshot(source, data):
             f.write(f"{k}:{v}\n")
     os.replace(tmp, path)
 
-
 def apply_deltas(current, source):
-    """current = absolute counters. Add only the growth since last tick."""
     if not current:
         return
     prev = load_snapshot(source)
@@ -147,7 +192,6 @@ def apply_deltas(current, source):
     c = conn.cursor()
     for uname, cur_val in current.items():
         prev_val = prev.get(uname, 0)
-        # counter reset (service restart) -> treat current as the delta
         delta = cur_val - prev_val if cur_val >= prev_val else cur_val
         if delta > 0:
             c.execute(
@@ -161,17 +205,18 @@ def apply_deltas(current, source):
     conn.close()
     save_snapshot(source, current)
 
-
 def main():
-    print("Shiro Traffic Collector started (xray + wireguard, no iptables).")
+    print("Shiro Universal Traffic Collector started (SSH + Xray + WireGuard).")
+    init_ssh_iptables_chain()
     while True:
         try:
+            sync_ssh_iptables_rules()
+            apply_deltas(collect_ssh(), "ssh")
             apply_deltas(collect_xray(), "xray")
             apply_deltas(collect_wireguard(), "wireguard")
         except Exception as e:
             print(f"Collector error: {e}")
         time.sleep(INTERVAL)
-
 
 if __name__ == "__main__":
     main()

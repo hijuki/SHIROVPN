@@ -60,6 +60,7 @@ def remove_from_xray(username):
     except Exception as e:
         print(f"Error removing {username} from Xray: {e}")
 
+# 1. EXPIRED ACCOUNTS CHECKER & PURGE
 def check_expired_accounts():
     try:
         conn = sqlite3.connect(DB_PATH)
@@ -139,7 +140,7 @@ def check_expired_accounts():
                             "📅 <b>Expired</b> ": f"<code>{exp_str}</code>",
                             "🛡️ <b>Status</b>  ": "<code>Berhasil Dihapus</code>"
                         },
-                        footer="Masa aktif akun telah berakhir dan telah dihapus dari sistem."
+                        footer="Masa aktif akun telah berakhir dan telah dibersihkan otomatis."
                     )
             except Exception as e:
                 print(f"Error parsing exp for {username}: {e}")
@@ -148,6 +149,7 @@ def check_expired_accounts():
     except Exception as e:
         print(f"DB Error check_expired: {e}")
 
+# 2. SSH MULTI-IP & SESSION LIMITER
 def enforce_ssh_ip_limit():
     try:
         conn = sqlite3.connect(DB_PATH)
@@ -188,6 +190,52 @@ def enforce_ssh_ip_limit():
     except Exception as e:
         print(f"SSH IP limit check error: {e}")
 
+# 3. XRAY (VLESS / VMESS / TROJAN) MULTI-IP LIMITER
+def enforce_xray_ip_limit():
+    try:
+        if not os.path.exists(ACCESS_LOG):
+            return
+        
+        conn = sqlite3.connect(DB_PATH)
+        c = conn.cursor()
+        c.execute("SELECT username, ip_limit, user_id, protocol FROM accounts WHERE protocol IN ('vless', 'vmess', 'trojan')")
+        xray_users = {row[0]: (row[1] or 2, row[2], row[3]) for row in c.fetchall()}
+        conn.close()
+
+        if not xray_users:
+            return
+
+        # Read last 200 lines of access log
+        out = subprocess.run(["tail", "-n", "200", ACCESS_LOG], capture_output=True, text=True).stdout
+        user_ips = {}
+        for line in out.strip().splitlines():
+            m = re.search(r"from (?:tcp:)?([0-9.]+):\d+.*email:\s*([a-zA-Z0-9_-]+)", line)
+            if m:
+                ip, email = m.group(1), m.group(2).split("@")[0]
+                if email in xray_users:
+                    user_ips.setdefault(email, set()).add(ip)
+
+        for uname, ips in user_ips.items():
+            limit, uid, proto = xray_users[uname]
+            if len(ips) > limit:
+                print(f"XRAY MULTI-IP VIOLATION: {uname} using {len(ips)} IPs (Limit: {limit})")
+                send_alert_box(
+                    title=f"PERINGATAN MULTI-IP {proto.upper()}",
+                    badge="🚨",
+                    items={
+                        "👤 <b>Pengguna</b>  ": f"ID <code>{uid}</code>",
+                        "🔑 <b>Akun</b>      ": f"<code>{uname}</code>",
+                        "🔌 <b>Protokol</b>  ": f"<b>{proto.upper()}</b>",
+                        "🌐 <b>Limit Device</b>": f"<b>{limit} IP</b>",
+                        "⚠️ <b>IP Aktif</b>   ": f"<code>{', '.join(list(ips)[:3])}</code> ({len(ips)} IP)",
+                        "🛡️ <b>Status</b>    ": "<code>Monitoring Alert Terkirim</code>"
+                    },
+                    footer="Pengguna terdeteksi melebihi batas login perangkat."
+                )
+    except Exception as e:
+        print(f"Xray IP limit error: {e}")
+
+# 4. QUOTA DATA ENFORCER
 def enforce_quota_limits():
     try:
         conn = sqlite3.connect(DB_PATH)
@@ -206,35 +254,40 @@ def enforce_quota_limits():
                     print(f"QUOTA EXCEEDED: {uname} used {used_b} >= {total_bytes}")
                     if proto == "ssh":
                         if valid_username(uname):
+                            subprocess.run(["pkill", "-9", "-u", uname], capture_output=True)
                             subprocess.run(["userdel", "-r", "-f", uname], capture_output=True)
                         else:
                             print(f"Invalid username, skipping quota purge: {uname}")
                     elif proto in ["vless", "vmess", "trojan"]:
                         remove_from_xray(uname)
+                    elif proto == "wg":
+                        subprocess.run(["python3", "/usr/local/bin/manage_wg.py", "del", uname], capture_output=True)
+
                     c.execute("DELETE FROM accounts WHERE id=?", (aid,))
                     conn.commit()
 
                     send_alert_box(
-                        title="ᴋᴜᴏᴛᴀ ᴅᴀᴛᴀ ʜᴀʙɪꜱ",
+                        title="KUOTA DATA HABIS",
                         badge="📦",
                         items={
-                            "👤 <b>ᴜꜱᴇʀɴᴀᴍᴇ</b>": f"<code>{uname}</code>",
-                            "🔌 <b>ᴘʀᴏᴛᴏᴋᴏʟ</b>": f"<b>{proto.upper()}</b>",
-                            "📦 <b>ʙᴀᴛᴀꜱ ᴋᴜᴏᴛᴀ</b>": f"<code>{quota_str}</code>",
-                            "🛡️ <b>ᴀᴋꜱɪ</b>    ": "<code>AUTO PURGED (QUOTA EXHAUSTED)</code>",
-                            "🆔 <b>ᴜꜱᴇʀ ɪᴅ</b> ": f"<code>{uid}</code>"
+                            "👤 <b>Pengguna</b>  ": f"ID <code>{uid}</code>",
+                            "🔑 <b>Akun</b>      ": f"<code>{uname}</code>",
+                            "🔌 <b>Protokol</b>  ": f"<b>{proto.upper()}</b>",
+                            "📦 <b>Batas Kuota</b>": f"<code>{quota_str}</code>",
+                            "🛡️ <b>Status</b>    ": "<code>Akun Dihapus Otomatis</code>"
                         },
-                        footer="Akun dinonaktifkan otomatis karena telah mencapai batas kuota data."
+                        footer="Akun dinonaktifkan otomatis karena telah mencapai batas kuota pemakaian data."
                     )
         conn.close()
     except Exception as e:
         print(f"Quota enforcement error: {e}")
 
 def main():
-    print("Shiro Real-time Guard Daemon Active...")
+    print("Shiro Real-time Multi-Protocol Guard Daemon Active...")
     while True:
         check_expired_accounts()
         enforce_ssh_ip_limit()
+        enforce_xray_ip_limit()
         enforce_quota_limits()
         time.sleep(5)
 

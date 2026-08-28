@@ -3,6 +3,8 @@ import sys
 import json
 import uuid
 import time
+import random
+import string
 import sqlite3
 import datetime
 import asyncio
@@ -142,6 +144,12 @@ def init_db():
         description TEXT,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )""")
+    c.execute("""CREATE TABLE IF NOT EXISTS trial_logs (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER,
+        protocol TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )""")
 
     # Seed default settings
     defaults = {
@@ -200,37 +208,38 @@ def get_account_quota_info(username):
     row = c.fetchone()
     conn.close()
     if not row:
-        return "100 GB", "0 B", "0 B / 100 GB (0%)", "[□□□□□□□□□□] 100 GB sisa", 0.0
+        return "100 GB", "0 B", "0 B / 100 GB (0%)", "▱▱▱▱▱▱▱▱▱▱ 100 GB sisa", 0.0
     
     quota_str, used_bytes = row[0], row[1] or 0
     
     def fmt_b(b):
-        if b < 1024: return f"{b} B"
+        if b < 1024: return f"{b:.0f} B"
         elif b < 1024**2: return f"{b/1024:.2f} KB"
         elif b < 1024**3: return f"{b/(1024**2):.2f} MB"
         else: return f"{b/(1024**3):.2f} GB"
 
     used_fmt = fmt_b(used_bytes)
     if not quota_str or "unlimited" in str(quota_str).lower():
-        return "Unlimited", used_fmt, f"{used_fmt} / Unlimited", "[■■■■■■■■■■] Unlimited", 0.0
+        return "Unlimited", used_fmt, f"{used_fmt} / Unlimited", "▰▰▰▰▰▰▰▰▰▰ Unlimited", 0.0
     
     m = re.search(r'(\d+)', str(quota_str))
     if m:
         total_gb = float(m.group(1))
         total_bytes = total_gb * (1024**3)
         used = float(used_bytes)
-        pct = min(100.0, (used / total_bytes) * 100)
+        pct = min(100.0, (used / total_bytes) * 100) if total_bytes > 0 else 0.0
         left_bytes = max(0.0, total_bytes - used)
         left_fmt = fmt_b(left_bytes)
         
-        filled = min(10, int(round(pct / 10)))
-        bar = "■" * filled + "□" * (10 - filled)
+        filled = min(10, max(0, int(round((pct / 100.0) * 10))))
+        empty = 10 - filled
+        bar = "▰" * filled + "▱" * empty
         
         ratio_str = f"{used_fmt} / {total_gb:.0f} GB ({pct:.1f}%)"
-        bar_str = f"[{bar}] {left_fmt} sisa"
+        bar_str = f"{bar} (Sisa: {left_fmt})"
         return f"{total_gb:.0f} GB", used_fmt, ratio_str, bar_str, pct
     
-    return str(quota_str), used_fmt, f"{used_fmt} / {quota_str}", "[□□□□□□□□□□]", 0.0
+    return str(quota_str), used_fmt, f"{used_fmt} / {quota_str}", "▱▱▱▱▱▱▱▱▱▱", 0.0
 
 def get_server_stats():
     try:
@@ -842,14 +851,38 @@ async def execute_trial(update: Update, context: ContextTypes.DEFAULT_TYPE):
     proto = query.data.replace("trial_", "")
     u = update.effective_user
 
-    t_id = f"tr_{uuid.uuid4().hex[:4]}"
-    t_pass = f"p_{uuid.uuid4().hex[:4]}"
+    # Cek apakah user sudah pernah mengambil trial
+    conn = sqlite3.connect(DB_PATH)
+    c = conn.cursor()
+    c.execute("SELECT COUNT(*) FROM trial_logs WHERE user_id=?", (u.id,))
+    trial_count = c.fetchone()[0]
+    conn.close()
 
-    load_msg = await query.edit_message_text("⏳ <code>[■□□□□□□□□□] 10% Menghubungkan ke Core Engine...</code>", parse_mode="HTML")
+    admin_id_val = int(get_setting("admin_id", str(ADMIN_ID)))
+    if trial_count > 0 and u.id != admin_id_val:
+        await query.edit_message_text(
+            "⚠️ <b>BATAS TRIAL TERCAPAI</b>\n\n"
+            "Anda sudah pernah menggunakan jatah akun trial gratis (Maksimal 1x per akun Telegram).\n"
+            "Silakan beli akun resmi melalui menu <b>[BELI AKUN]</b> atau hubungi Admin.",
+            reply_markup=InlineKeyboardMarkup([
+                [InlineKeyboardButton("⚡ BELI AKUN SEKARANG", callback_data="menu_buy")],
+                [InlineKeyboardButton("« KEMBALI KE MENU", callback_data="menu_start")]
+            ]),
+            parse_mode="HTML"
+        )
+        return
+
+    # Generate nama akun trial bersih (hanya huruf kecil, tanpa underscore)
+    clean_code = "".join(random.choices(string.ascii_lowercase, k=6))
+    clean_pass = "".join(random.choices(string.ascii_lowercase + string.digits, k=6))
+    t_id = f"tr{clean_code}"
+    t_pass = f"p{clean_pass}"
+
+    load_msg = await query.edit_message_text("⏳ <code>[▱▱▱▱▱▱▱▱▱▱] 10% Menghubungkan ke Core Engine...</code>", parse_mode="HTML")
     await asyncio.sleep(0.3)
-    await load_msg.edit_text("⚡ <code>[■■■■■■□□□□] 60% Menyiapkan Akun Trial 30 Menit...</code>", parse_mode="HTML")
+    await load_msg.edit_text("⚡ <code>[▰▰▰▰▰▰▱▱▱▱] 60% Menyiapkan Akun Trial 30 Menit...</code>", parse_mode="HTML")
     await asyncio.sleep(0.3)
-    await load_msg.edit_text("✨ <code>[■■■■■■■■■■] 100% Selesai!</code>", parse_mode="HTML")
+    await load_msg.edit_text("✨ <code>[▰▰▰▰▰▰▰▰▰▰] 100% Selesai!</code>", parse_mode="HTML")
 
     # 30 mins expiry
     now = datetime.datetime.now()
@@ -857,6 +890,16 @@ async def execute_trial(update: Update, context: ContextTypes.DEFAULT_TYPE):
     exp_str = f"30 Menit ({exp_dt.strftime('%H:%M')} WIB)"
     
     uid_res, exp_s, conf_link = execute_system_create(proto, t_id, t_pass, days=1, ip_limit=1, quota="1 GB", user_id=u.id, exp_override=exp_str, user_name=u.username or u.first_name)
+
+    # Catat log trial
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        c = conn.cursor()
+        c.execute("INSERT INTO trial_logs (user_id, protocol) VALUES (?, ?)", (u.id, proto))
+        conn.commit()
+        conn.close()
+    except Exception:
+        pass
 
     if proto == "ssh":
         card = format_ssh_account(t_id, t_pass, exp_str, ip_limit=1, quota="1 GB")
@@ -939,6 +982,7 @@ async def account_detail_menu(update: Update, context: ContextTypes.DEFAULT_TYPE
         card = format_wg_account(uname, exp_s, client_conf=conf_link, ip_limit=ip_l, quota=q_gb)
 
     kb = [
+        [InlineKeyboardButton("🔄 REFRESH STATUS / KUOTA", callback_data=f"acc_view_{acc_id}")],
         [InlineKeyboardButton("🔄 RENEW AKUN INI", callback_data=f"renew_acc_{acc_id}")],
         [InlineKeyboardButton("« KEMBALI KE DAFTAR AKUN", callback_data="menu_my_accounts")]
     ]
