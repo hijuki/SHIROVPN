@@ -202,15 +202,14 @@ def process_multi_ip_violation(acc_id, user_id, username, proto, limit, detected
                 "🔑 <b>Akun</b>      ": f"<code>{username}</code>",
                 "🔌 <b>Protokol</b>  ": f"<b>{proto.upper()}</b>",
                 "🌐 <b>Batas Limit</b>": f"<b>{limit} Device/IP</b>",
-                "🚨 <b>Terdeteksi</b> ": f"<b>{len(detected_ips)} IP Berbeda</b>",
-                "📡 <b>Daftar IP</b>  ": f"<code>{', '.join(list(detected_ips)[:3])}</code>",
+                "🚨 <b>Terdeteksi</b> ": "<b>Login lebih dari batas</b>",
                 "⚡ <b>Status</b>     ": "<code>PERINGATAN PERTAMA</code>"
             },
             footer="Jika terdeteksi multi-login sekali lagi (Peringatan 2/2), akun akan otomatis DIHAPUS permanen."
         )
     elif strike_num >= 2:
         # Strike 2: Auto-Delete
-        delete_account_complete(acc_id, user_id, username, proto, reason=f"MULTI-IP VIOLATION (2/2 - {len(detected_ips)} IPs)")
+        delete_account_complete(acc_id, user_id, username, proto, reason=f"MULTI-IP (Melebihi Limit {limit} Device)")
 
 # 3. SSH MULTI-IP CHECKER (Inspects pure INCOMING client connections only)
 def enforce_ssh_ip_limit():
