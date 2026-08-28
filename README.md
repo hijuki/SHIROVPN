@@ -7,48 +7,53 @@ Ekosistem server VPN otomatis modern berbasis Linux dengan **16-Option Terminal 
 ## 🌟 Fitur Utama
 
 - 🚀 **Multi-Protocol Support (6 Protokol)**:
-  - OpenSSH Direct & WebSocket SSL / TLS 1.3
+  - OpenSSH Direct & WebSocket SSL / TLS 1.3 (Port 22, 80, 443)
   - Dropbear WS SSL (Port 109 & 110)
+  - BadVPN UDPGW Gaming & Voice (Port 7100-7900 / 7300)
   - VLESS WS TLS & gRPC TLS
   - VMESS WS TLS
   - TROJAN WS TLS & gRPC TLS
   - UDP ZiVPN Gaming (Port 5667)
   - WireGuard Modern VPN (Port 51820)
 - 🤖 **Interactive Telegram Store Bot**:
-  - Menu berbasis Small-Caps Box Unicode
-  - Isolasi akun user (Member hanya melihat akun miliknya sendiri)
-  - Fitur **🔄 RENEW AKUN** langsung dari bot
-  - Katalog server dynamic dengan **Auto-Detect ISP & Lokasi Geografis**
-  - Instant response dashboard tanpa loading lag
-  - Admin Master Panel dengan input manual / custom text untuk Harga, Quota (GB), & IP Limit
-  - Notifikasi otomatis ke Telegram Supergroup / Forum Topics
+  - Auto Create All-in-One VIP Card (SSH, VLESS, VMESS, TROJAN simultan)
+  - Anti-Spam Clean Share Card dengan Deep-Link Auto-Deliver
+  - 1-Click Total Account Purge dari panel admin
+  - Notifikasi instan khusus saat Pengguna Baru menekan `/start`
+  - Auto-Renew Saldo otomatis & tombol pengingat masa aktif H-1
+  - Panic / Maintenance Mode switcher
+  - Segmented Broadcast (Semua User vs Khusus User Aktif)
+  - Isolasi akun user (Member hanya melihat akun miliknya)
+  - Auto-detect ISP & Lokasi Geografis server
+  - Admin Master Panel dengan input custom Text/Interactive Wizard
 - 🛡️ **Shiro Guard Daemon (`shiro-guard.service`)**:
-  - Auto-purge akun trial (30 menit) & regular expired setiap 5 detik
-  - Multi-IP monitoring & limiter real-time (auto-kill koneksi melebihi batas)
-  - Quota limiter enforcement
+  - Auto-Heal Sentinel: memonitor dan me-restart otomatis semua service core jika crash
+  - Multi-IP Limiter 2-Strike akurat dengan Grace Period 30 detik (menghitung unique client inbound IP)
+  - H-1 Expiration Checker & Auto-Deduct Balance Renew
+  - Auto-Purge expired & quota tracking
+  - Log rotation & auto-truncation file log > 50MB
 - 🖥️ **Cyber Terminal HUD Menu (`/usr/bin/menu`)**:
   - 16 menu fungsional lengkap
-  - Real-time CPU usage, RAM usage, & Disk Usage (`terpakai / ∞`)
-  - Ookla Official Speedtest Benchmark dengan visual box
-  - **Full Database & Config Backup/Restore (Format ZIP)** untuk migrasi antar VPS
-- 🎨 **Symmetric HTML & Unicode Banners**:
-  - SSH Terminal Login Banner (`/etc/issue.net`)
-  - Dropbear HTML Server Message untuk client HTTP Custom, NetMod, dsb. (`/etc/dropbear_banner`)
+  - Real-time CPU, RAM, & Disk Usage
+  - Ookla Official Speedtest Benchmark resmi
+  - 1-Click Backup & Auto-Detect Restore dari file ZIP terbaru
+- 🎨 **HTML Symmetric Banners**:
+  - Dropbear & OpenSSH HTML Centered Multi-Color Banner (`/etc/issue.net`, `/etc/dropbear_banner`)
 
 ---
 
 ## 🚀 Panduan Instalasi Awal (Fresh VPS Setup)
 
 ### 1. Persyaratan Sistem
-- **OS**: Ubuntu 20.04 / 22.04 LTS (x86_64)
-- **Port Akses**: Pastikan port `80`, `443`, `109`, `110`, `5667/udp`, `51820/udp` terbuka di firewall provider (Security Groups).
+- **OS**: Ubuntu 20.04 / 22.04 / 24.04 / 26.04 LTS (x86_64)
+- **Port Akses**: Pastikan port `80`, `443`, `109`, `110`, `7300/udp`, `5667/udp`, `51820/udp` terbuka di firewall VPS.
 - **Domain**: Sudah dipointing (DNS A Record) ke IP Server VPS Anda.
 
 ---
 
 ### 2. Quick One-Line Automated Installer
 
-Jalankan perintah berikut pada terminal VPS (sebagai user `root`):
+Jalankan perintah berikut pada terminal VPS baru (sebagai user `root`):
 
 ```bash
 apt-get update -y && apt-get install -y git curl
@@ -57,13 +62,13 @@ chmod +x /tmp/SHIROVPN/setup.sh
 /tmp/SHIROVPN/setup.sh
 ```
 
-Installer akan meminta Anda memasukkan:
-1. **Domain VPS** (contoh: `your-domain.com`)
+Installer akan memandu konfigurasi:
+1. **Domain VPS** (contoh: `sg1-shiro.my.id`)
 2. **Telegram Bot Token** (dari `@BotFather`)
-3. **Telegram Admin Master User ID** (contoh: `1234567890`)
-4. **Username Telegram Admin** (contoh: `@YourTelegramUsername`)
+3. **Telegram Admin Master User ID** (contoh: `6343065438`)
+4. **Username Telegram Admin** (contoh: `@Hillz126`)
 
-Semua dependensi sistem, binary, service daemon, konfigurasi, dan SQLite DB akan dipasang otomatis.
+Semua dependensi sistem, binary BadVPN UDPGW, sertifikat SSL Let's Encrypt, cron/logrotate, service daemon, konfigurasi, dan SQLite DB akan dipasang otomatis.
 
 ---
 

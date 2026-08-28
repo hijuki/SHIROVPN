@@ -67,10 +67,20 @@ if ! command -v xray &>/dev/null; then
     bash -c "$(curl -L https://github.com/XTLS/Xray-install/raw/main/install-release.sh)" @ install
 fi
 
-# Install BadVPN udpgw if missing
+# 3. Compile/Install BadVPN udpgw if missing
 if ! command -v badvpn-udpgw &>/dev/null; then
-    wget -q -O /usr/local/bin/badvpn-udpgw "https://github.com/ambrop72/badvpn/raw/master/badvpn-udpgw" || true
-    chmod +x /usr/local/bin/badvpn-udpgw 2>/dev/null || true
+    echo -e "${CYAN}Mengompilasi BadVPN UDPGW dari source...${NC}"
+    apt-get install -y cmake build-essential >/dev/null 2>&1 || true
+    rm -rf /tmp/badvpn_build
+    git clone https://github.com/ambrop72/badvpn.git /tmp/badvpn_build >/dev/null 2>&1 || true
+    if [ -d /tmp/badvpn_build ]; then
+        mkdir -p /tmp/badvpn_build/build && cd /tmp/badvpn_build/build
+        cmake .. -DCMAKE_POLICY_VERSION_MINIMUM=3.5 -DBUILD_NOTHING_BY_DEFAULT=1 -DBUILD_UDPGW=1 >/dev/null 2>&1 || true
+        make -j$(nproc) >/dev/null 2>&1 || true
+        find . -name 'badvpn-udpgw' -exec cp {} /usr/local/bin/badvpn-udpgw \;
+        chmod +x /usr/local/bin/badvpn-udpgw 2>/dev/null || true
+        cd /root && rm -rf /tmp/badvpn_build
+    fi
 fi
 
 echo -e "${CYAN}[4/7] Menyalin Script Engine & Service Daemon...${NC}"
@@ -89,8 +99,14 @@ cp "${SCRIPT_DIR}/etc/issue.net" /etc/issue.net
 cp "${SCRIPT_DIR}/etc/issue.net" /etc/dropbear_banner
 cp "${SCRIPT_DIR}/etc/dropbear.default" /etc/default/dropbear
 
-# Deploy systemd unit files
-cp "${SCRIPT_DIR}/systemd/"*.service /etc/systemd/system/
+# Deploy systemd unit files & logrotate
+cp "${SCRIPT_DIR}/systemd/"*.service /etc/systemd/system/ 2>/dev/null || true
+if [ -f "${SCRIPT_DIR}/etc/badvpn-udpgw.service" ]; then
+    cp "${SCRIPT_DIR}/etc/badvpn-udpgw.service" /etc/systemd/system/
+fi
+if [ -f "${SCRIPT_DIR}/etc/shiro_logrotate" ]; then
+    cp "${SCRIPT_DIR}/etc/shiro_logrotate" /etc/logrotate.d/shiro
+fi
 
 # Deploy Xray config template only on a fresh install (never clobber a live config)
 mkdir -p /usr/local/etc/xray /var/log/xray /var/lib/shiro_traffic
@@ -148,8 +164,8 @@ fi
 echo -e "${CYAN}[6/7] Mengaktifkan dan Merestart Seluruh Daemon Service...${NC}"
 systemctl daemon-reload
 systemctl unmask dropbear 2>/dev/null || true
-systemctl enable dropbear ws-dropbear shirobot shiro-guard shiro-traffic
-systemctl restart ssh dropbear ws-dropbear shirobot shiro-guard shiro-traffic
+systemctl enable ssh dropbear ws-dropbear badvpn-udpgw xray shirobot shiro-guard shiro-traffic
+systemctl restart ssh dropbear ws-dropbear badvpn-udpgw xray shirobot shiro-guard shiro-traffic
 
 echo -e "${CYAN}[7/7] Verifikasi Port Layanan...${NC}"
 ss -tulpn 2>/dev/null | grep -E ':(22|80|109|110|443|1445) ' || true
