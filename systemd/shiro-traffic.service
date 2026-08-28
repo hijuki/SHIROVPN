@@ -1,0 +1,13 @@
+[Unit]
+Description=Shiro Traffic Collector Daemon
+After=network.target xray.service
+
+[Service]
+Type=simple
+User=root
+ExecStart=/usr/bin/python3 /usr/local/bin/shiro_traffic.py
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

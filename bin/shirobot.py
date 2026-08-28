@@ -40,8 +40,8 @@ def _db_boot(key, fallback=""):
 
 BOT_TOKEN = _db_boot("bot_token", "YOUR_BOT_TOKEN_HERE")
 ADMIN_ID = int(_db_boot("admin_id", "1234567890"))
-ADMIN_USER = _db_boot("admin_user", "@Hillz126")
-DOMAIN = _db_boot("domain", "sg1-shiro.my.id")
+ADMIN_USER = _db_boot("admin_user", "@YourTelegramUsername")
+DOMAIN = _db_boot("domain", "your-domain.com")
 DB_PATH = "/var/lib/shirobot.db"
 
 # Auto Detect Server Info
@@ -143,7 +143,7 @@ def init_db():
         "price_per_day": "100",
         "default_ip_limit": "2",
         "default_quota": "100 GB",
-        "notif_chat_id": "-1000000000000",
+        "notif_chat_id": "-1004339591538",
         "notif_thread_id": "3"
     }
     for k, v in defaults.items():
@@ -195,30 +195,37 @@ def get_account_quota_info(username):
     row = c.fetchone()
     conn.close()
     if not row:
-        return "100 GB", "0 B", "0 B / 100 GB", 100
+        return "100 GB", "0 B", "0 B / 100 GB (0%)", "[□□□□□□□□□□] 100 GB sisa", 0.0
     
     quota_str, used_bytes = row[0], row[1] or 0
     
     def fmt_b(b):
         if b < 1024: return f"{b} B"
-        elif b < 1024**2: return f"{b/1024:.1f} KB"
-        elif b < 1024**3: return f"{b/(1024**2):.1f} MB"
+        elif b < 1024**2: return f"{b/1024:.2f} KB"
+        elif b < 1024**3: return f"{b/(1024**2):.2f} MB"
         else: return f"{b/(1024**3):.2f} GB"
 
     used_fmt = fmt_b(used_bytes)
     if not quota_str or "unlimited" in str(quota_str).lower():
-        return "Unlimited", used_fmt, f"{used_fmt} / Unlimited", 100
+        return "Unlimited", used_fmt, f"{used_fmt} / Unlimited", "[■■■■■■■■■■] Unlimited", 0.0
     
     m = re.search(r'(\d+)', str(quota_str))
     if m:
         total_gb = float(m.group(1))
         total_bytes = total_gb * (1024**3)
         used = float(used_bytes)
+        pct = min(100.0, (used / total_bytes) * 100)
         left_bytes = max(0.0, total_bytes - used)
-        pct = max(0, min(100, int((left_bytes / total_bytes) * 100)))
-        return f"{total_gb:.0f} GB", used_fmt, f"{used_fmt} / {total_gb:.0f} GB", pct
+        left_fmt = fmt_b(left_bytes)
+        
+        filled = min(10, int(round(pct / 10)))
+        bar = "■" * filled + "□" * (10 - filled)
+        
+        ratio_str = f"{used_fmt} / {total_gb:.0f} GB ({pct:.1f}%)"
+        bar_str = f"[{bar}] {left_fmt} sisa"
+        return f"{total_gb:.0f} GB", used_fmt, ratio_str, bar_str, pct
     
-    return str(quota_str), used_fmt, f"{used_fmt} / {quota_str}", 100
+    return str(quota_str), used_fmt, f"{used_fmt} / {quota_str}", "[□□□□□□□□□□]", 0.0
 
 def get_server_stats():
     try:
@@ -248,7 +255,8 @@ def send_telegram_notif(text):
 
 # ================= FORMATTERS =================
 def format_ssh_account(user, password, exp_str, ip_limit=2, quota="100 GB"):
-    q_ratio = get_account_quota_info(user)[2]
+    _, _, q_ratio, q_bar, _ = get_account_quota_info(user)
+    domain_val = get_setting("domain", DOMAIN)
     return f"""╭━━━━━━━━━━━━━━━━━━━━━━╮
       🚀 <b>ꜱꜱʜ ᴡꜱ ꜱꜱʟ ᴀᴄᴄᴏᴜɴᴛ</b>
 ╰━━━━━━━━━━━━━━━━━━━━━━╯
@@ -259,6 +267,7 @@ def format_ssh_account(user, password, exp_str, ip_limit=2, quota="100 GB"):
 ├ 📅 <b>ᴇxᴘɪʀᴇᴅ</b>  : <code>{exp_str}</code>
 ├ 🌐 <b>ɪᴘ ʟɪᴍɪᴛ</b> : {ip_limit} IP
 ├ 📦 <b>ǫᴜᴏᴛᴀ</b>    : {q_ratio}
+├ 📊 <b>ᴘʀᴏɢʀᴇꜱꜱ</b>  : <code>{q_bar}</code>
 └ 🟢 <b>ꜱᴛᴀᴛᴜꜱ</b>   : <code>ACTIVE</code>
 
 ━━━━━━━━━━━━━━━━━━━━━━
@@ -294,7 +303,8 @@ def format_ssh_account(user, password, exp_str, ip_limit=2, quota="100 GB"):
 
 def format_xray_account(proto, user, u_id, exp_str, ip_limit=2, quota="100 GB"):
     p_name = proto.upper()
-    q_ratio = get_account_quota_info(user)[2]
+    _, _, q_ratio, q_bar, _ = get_account_quota_info(user)
+    domain_val = get_setting("domain", DOMAIN)
     
     if proto == "vless":
         link = f"vless://{u_id}@{DOMAIN}:443?path=%2Fvless&security=tls&encryption=none&type=ws&sni={DOMAIN}#{user}"
@@ -322,6 +332,7 @@ def format_xray_account(proto, user, u_id, exp_str, ip_limit=2, quota="100 GB"):
 ├ 📅 <b>ᴇxᴘɪʀᴇᴅ</b>  : <code>{exp_str}</code>
 ├ 🌐 <b>ɪᴘ ʟɪᴍɪᴛ</b> : {ip_limit} IP
 ├ 📦 <b>ǫᴜᴏᴛᴀ</b>    : {q_ratio}
+├ 📊 <b>ᴘʀᴏɢʀᴇꜱꜱ</b>  : <code>{q_bar}</code>
 └ 🟢 <b>ꜱᴛᴀᴛᴜꜱ</b>   : <code>ACTIVE</code>
 
 ━━━━━━━━━━━━━━━━━━━━━━
@@ -354,7 +365,8 @@ def format_xray_account(proto, user, u_id, exp_str, ip_limit=2, quota="100 GB"):
 🤝 <i>Terima kasih telah menggunakan layanan kami.</i>"""
 
 def format_zivpn_account(user, password, exp_str, ip_limit=2, quota="100 GB"):
-    q_ratio = get_account_quota_info(user)[2]
+    _, _, q_ratio, q_bar, _ = get_account_quota_info(user)
+    domain_val = get_setting("domain", DOMAIN)
     return f"""╭━━━━━━━━━━━━━━━━━━━━━━╮
       🎮 <b>ᴜᴅᴘ ᴢɪᴠᴘɴ ɢᴀᴍɪɴɢ</b>
 ╰━━━━━━━━━━━━━━━━━━━━━━╯
@@ -365,6 +377,7 @@ def format_zivpn_account(user, password, exp_str, ip_limit=2, quota="100 GB"):
 ├ 📅 <b>ᴇxᴘɪʀᴇᴅ</b>  : <code>{exp_str}</code>
 ├ 🌐 <b>ɪᴘ ʟɪᴍɪᴛ</b> : {ip_limit} IP
 ├ 📦 <b>ǫᴜᴏᴛᴀ</b>    : {q_ratio}
+├ 📊 <b>ᴘʀᴏɢʀᴇꜱꜱ</b>  : <code>{q_bar}</code>
 └ 🟢 <b>ꜱᴛᴀᴛᴜꜱ</b>   : <code>ACTIVE</code>
 
 ━━━━━━━━━━━━━━━━━━━━━━
@@ -381,7 +394,8 @@ def format_zivpn_account(user, password, exp_str, ip_limit=2, quota="100 GB"):
 🤝 <i>Terima kasih telah menggunakan layanan kami.</i>"""
 
 def format_wg_account(user, exp_str, client_conf="", ip_limit=2, quota="100 GB"):
-    q_ratio = get_account_quota_info(user)[2]
+    _, _, q_ratio, q_bar, _ = get_account_quota_info(user)
+    domain_val = get_setting("domain", DOMAIN)
     return f"""╭━━━━━━━━━━━━━━━━━━━━━━╮
       🛡️ <b>ᴡɪʀᴇɢᴜᴀʀᴅ ᴠᴘɴ ᴀᴄᴄᴏᴜɴᴛ</b>
 ╰━━━━━━━━━━━━━━━━━━━━━━╯
@@ -391,6 +405,7 @@ def format_wg_account(user, exp_str, client_conf="", ip_limit=2, quota="100 GB")
 ├ 📅 <b>ᴇxᴘɪʀᴇᴅ</b>  : <code>{exp_str}</code>
 ├ 🌐 <b>ɪᴘ ʟɪᴍɪᴛ</b> : {ip_limit} IP
 ├ 📦 <b>ǫᴜᴏᴛᴀ</b>    : {q_ratio}
+├ 📊 <b>ᴘʀᴏɢʀᴇꜱꜱ</b>  : <code>{q_bar}</code>
 └ 🟢 <b>ꜱᴛᴀᴛᴜꜱ</b>   : <code>ACTIVE</code>
 
 ┌〔 🌍 <b>ꜱᴇʀᴠᴇʀ ᴅᴇᴛᴀɪʟꜱ</b> 〕
@@ -1140,7 +1155,7 @@ async def wiz_owner_prompt(update: Update, context: ContextTypes.DEFAULT_TYPE):
 Kirim dalam format:
 <code>ID_ANGKA @username</code>
 
-Contoh: <code>1234567890 @Hillz126</code>"""
+Contoh: <code>1234567890 @YourTelegramUsername</code>"""
     kb = [[InlineKeyboardButton("❌ BATAL", callback_data="admin_wizard")]]
     await query.edit_message_text(msg, reply_markup=InlineKeyboardMarkup(kb), parse_mode="HTML")
 
@@ -1153,7 +1168,7 @@ async def wiz_domain_prompt(update: Update, context: ContextTypes.DEFAULT_TYPE):
 └────────────────────────
 
 Kirim domain baru (tanpa http):
-<i>Contoh: <code>sg1-shiro.my.id</code></i>"""
+<i>Contoh: <code>your-domain.com</code></i>"""
     kb = [[InlineKeyboardButton("❌ BATAL", callback_data="admin_wizard")]]
     await query.edit_message_text(msg, reply_markup=InlineKeyboardMarkup(kb), parse_mode="HTML")
 
@@ -1169,7 +1184,7 @@ Kirim link topik forum Telegram:
 <i>Contoh: <code>https://t.me/c/4339591538/3</code></i>
 
 Atau kirim Chat ID langsung:
-<i>Contoh: <code>-1000000000000</code></i>"""
+<i>Contoh: <code>-1004339591538</code></i>"""
     kb = [[InlineKeyboardButton("❌ BATAL", callback_data="admin_wizard")]]
     await query.edit_message_text(msg, reply_markup=InlineKeyboardMarkup(kb), parse_mode="HTML")
 
