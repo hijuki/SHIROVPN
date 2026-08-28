@@ -1748,18 +1748,25 @@ Ketik <b>Kuota Data</b> (Contoh: <code>100 GB</code>, <code>50 GB</code>, atau <
         vip_card = format_all_in_one_account(clean_user, ssh_pass, xray_uuid, exp_str, ip_limit=f"{ip_limit} Device", quota=quota)
         bot_tag = get_setting("bot_username", BOT_USERNAME).replace("@", "")
         
-        # Share text for public groups (anti-spam friendly)
-        share_card = f"""🚀 <b>FREE VIP ALL-IN-ONE TRIAL (AKTIF)</b>
-━━━━━━━━━━━━━━━━━━━━━━
-👤 <b>Username</b> : <code>{clean_user}</code>
-🔑 <b>Password</b> : <code>{ssh_pass}</code>
-🌐 <b>Server</b>   : <code>{get_setting('domain', DOMAIN)}</code> (Singapore 🇸🇬)
-📅 <b>Expired</b>  : {exp_str} ({days} Hari)
-📦 <b>Kuota</b>    : {quota} | <b>Limit:</b> {ip_limit} Device
-🔌 <b>Support</b>  : SSH WS, VLESS, VMESS, TROJAN
-━━━━━━━━━━━━━━━━━━━━━━
-📥 <b>Ambil Semua Config Lengkap:</b>
-👉 <a href="https://t.me/{bot_tag}?start=vip_{clean_user}">KLIK DISINI UNTUK AMBIL CONFIG LENGKAP</a>"""
+        # Clean aesthetic share text for public groups
+        share_card = f"""╭━━━━━━━━━━━━━━━━━━━━━━━━━━━━╮
+  ⚡ <b>ꜰʀᴇᴇ ᴠɪᴘ ᴀʟʟ-ɪɴ-ᴏɴᴇ ᴛʀɪᴀʟ</b> ⚡
+╰━━━━━━━━━━━━━━━━━━━━━━━━━━━━╯
+
+┌〔 👤 <b>ɪɴꜰᴏʀᴍᴀꜱɪ ᴀᴋᴜɴ ᴍᴀꜱᴛᴇʀ</b> 〕
+├ 👤 <b>ᴜꜱᴇʀɴᴀᴍᴇ</b>  : <code>{clean_user}</code>
+├ 🔑 <b>ᴘᴀꜱꜱᴡᴏʀᴅ</b>  : <code>{ssh_pass}</code>
+├ 🌐 <b>ꜱᴇʀᴠᴇʀ</b>    : <code>{get_setting('domain', DOMAIN)}</code> (Singapore 🇸🇬)
+├ 📅 <b>ᴇxᴘɪʀᴇᴅ</b>   : <code>{exp_str}</code> ({days} Hari)
+├ 📦 <b>ǫᴜᴏᴛᴀ</b>     : <b>{quota}</b>
+├ 👥 <b>ɪᴘ ʟɪᴍɪᴛ</b>  : <b>{ip_limit} Device</b>
+├ 🔌 <b>ꜱᴜᴘᴘᴏʀᴛ</b>   : <code>SSH WS, VLESS, VMESS, TROJAN</code>
+└ 🟢 <b>ꜱᴛᴀᴛᴜꜱ</b>    : <code>ACTIVE & READY TO USE</code>
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📥 <b>ᴀᴍʙɪʟ ᴄᴏɴꜰɪɢ ʟᴇɴɢᴋᴀᴘ (ɪɴꜱᴛᴀɴ):</b>
+👉 <a href="https://t.me/{bot_tag}?start=vip_{clean_user}"><b>[ KLIK DISINI AMBIL SEMUA CONFIG ]</b></a>
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━"""
         
         if update.message:
             await update.message.reply_text(
@@ -1768,8 +1775,9 @@ Ketik <b>Kuota Data</b> (Contoh: <code>100 GB</code>, <code>50 GB</code>, atau <
                 parse_mode="HTML"
             )
             await update.message.reply_text(
-                f"📋 <b>TEKS KHUSUS UNTUK DI-SHARE KE GRUP LAIN (ANTI-SPAM):</b>\n\n{share_card}",
-                parse_mode="HTML"
+                share_card,
+                parse_mode="HTML",
+                disable_web_page_preview=True
             )
         return
     elif mode == "topup_user":
