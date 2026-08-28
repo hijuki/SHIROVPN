@@ -1113,13 +1113,31 @@ async def admin_broadcast_prompt(update: Update, context: ContextTypes.DEFAULT_T
     query = update.callback_query
     await query.answer()
     if update.effective_user.id != int(get_setting("admin_id", str(ADMIN_ID))): return
-    context.user_data["admin_typing_mode"] = "broadcast"
+
     msg = """┌〔 📢 <b>BROADCAST TELEGRAM</b> 〕
-├ 👑 Mode: Broadcast ke Seluruh Pengguna
+├ 👑 Pilih Target Penerima Broadcast:
+└────────────────────────"""
+    kb = [
+        [InlineKeyboardButton("👥 SEMUA USER TERDAFTAR", callback_data="bc_target_all")],
+        [InlineKeyboardButton("🟢 KHUSUS USER AKTIF (PUNYA AKUN)", callback_data="bc_target_active")],
+        [InlineKeyboardButton("« KEMBALI KE ADMIN", callback_data="menu_admin")]
+    ]
+    await query.edit_message_text(msg, reply_markup=InlineKeyboardMarkup(kb), parse_mode="HTML")
+
+async def admin_broadcast_set_target(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    if update.effective_user.id != int(get_setting("admin_id", str(ADMIN_ID))): return
+    target_mode = query.data.replace("bc_target_", "") # all or active
+    context.user_data["admin_typing_mode"] = f"broadcast_{target_mode}"
+    
+    label = "Semua User Terdaftar" if target_mode == "all" else "Khusus User yang Memiliki Akun Aktif"
+    msg = f"""┌〔 📢 <b>BROADCAST TELEGRAM</b> 〕
+├ 🎯 <b>Target</b> : {label}
 └────────────────────────
 
-Ketik <b>Pesan Pengumuman</b> yang ingin dikirimkan ke seluruh member bot:"""
-    kb = [[InlineKeyboardButton("« BATAL", callback_data="menu_admin")]]
+Ketik <b>Pesan Pengumuman</b> (teks HTML didukung):"""
+    kb = [[InlineKeyboardButton("« BATAL", callback_data="admin_broadcast")]]
     await query.edit_message_text(msg, reply_markup=InlineKeyboardMarkup(kb), parse_mode="HTML")
 
 async def admin_panel_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -1443,11 +1461,15 @@ async def admin_custom_input(update: Update, context: ContextTypes.DEFAULT_TYPE)
                 )
             except Exception: pass
             return
-    elif mode == "broadcast":
+    elif mode and mode.startswith("broadcast"):
+        target_mode = mode.replace("broadcast_", "") if "_" in mode else "all"
         conn = sqlite3.connect(DB_PATH)
         c = conn.cursor()
-        c.execute("SELECT user_id FROM users")
-        user_list = [row[0] for row in c.fetchall()]
+        if target_mode == "active":
+            c.execute("SELECT DISTINCT user_id FROM accounts")
+        else:
+            c.execute("SELECT user_id FROM users")
+        user_list = [row[0] for row in c.fetchall() if row[0]]
         conn.close()
         
         sent_count = 0
@@ -1458,8 +1480,9 @@ async def admin_custom_input(update: Update, context: ContextTypes.DEFAULT_TYPE)
                 sent_count += 1
             except Exception: pass
         
+        target_label = "Pengguna dengan Akun Aktif" if target_mode == "active" else "Semua Pengguna Terdaftar"
         await update.message.reply_text(
-            f"✅ <b>BROADCAST SELESAI!</b>\n\nPesan berhasil terkirim ke <b>{sent_count} / {len(user_list)}</b> pengguna aktif.",
+            f"✅ <b>BROADCAST SELESAI!</b>\n\n🎯 <b>Target:</b> {target_label}\n📊 <b>Terkirim:</b> <b>{sent_count} / {len(user_list)}</b> user.",
             reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("« KEMBALI KE ADMIN", callback_data="menu_admin")]]),
             parse_mode="HTML"
         )
@@ -1738,6 +1761,7 @@ def main():
     app.add_handler(CallbackQueryHandler(server_status_menu, pattern="^menu_server_status$"))
     app.add_handler(CallbackQueryHandler(admin_topup_prompt, pattern="^admin_topup$"))
     app.add_handler(CallbackQueryHandler(admin_broadcast_prompt, pattern="^admin_broadcast$"))
+    app.add_handler(CallbackQueryHandler(admin_broadcast_set_target, pattern="^bc_target_"))
     app.add_handler(CallbackQueryHandler(admin_panel_menu, pattern="^menu_admin$"))
     app.add_handler(CallbackQueryHandler(admin_list_accounts_menu, pattern="^admin_list_accounts$"))
 
