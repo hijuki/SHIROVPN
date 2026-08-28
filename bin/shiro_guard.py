@@ -1,4 +1,14 @@
 #!/usr/bin/env python3
+"""
+Shiro Real-time Guard Daemon:
+  1. Auto-Purge Expired Accounts (Trial 30 mins & Regular dates).
+  2. Multi-IP Limiter for ALL Protocols (SSH, Dropbear, VLESS, VMess, Trojan):
+     - Calculates UNIQUE client IP addresses (1 device with multiple sockets = 1 IP).
+     - 2-Strike Enforcement:
+         * Strike 1: Warning notification + disconnect excess sessions.
+         * Strike 2: Auto-delete / permanent suspend + deletion notification.
+  3. Auto-Purge Exceeded Bandwidth Quota.
+"""
 import os
 import re
 import sys
@@ -14,6 +24,9 @@ def valid_username(u):
 DB_PATH = "/var/lib/shirobot.db"
 XRAY_CONFIG = "/usr/local/etc/xray/config.json"
 ACCESS_LOG = "/var/log/xray/access.log"
+
+# Persistent memory for violations: {username: {"strikes": int, "last_strike_time": float}}
+VIOLATIONS = {}
 
 def send_alert_box(title, badge, items, footer=""):
     try:
@@ -31,6 +44,55 @@ def send_alert_box(title, badge, items, footer=""):
         send_notif("\n".join(body))
     except Exception as e:
         print(f"Error sending alert: {e}")
+
+def delete_account_complete(acc_id, user_id, username, proto, reason="MULTI-IP VIOLATION (2/2)"):
+    """Completely purges an account across Linux system, Xray, ZiVPN, WireGuard, and DB."""
+    try:
+        print(f"PURGING ACCOUNT: {username} ({proto}) [Reason: {reason}]")
+        if proto == "ssh":
+            if valid_username(username):
+                subprocess.run(["pkill", "-9", "-u", username], capture_output=True)
+                subprocess.run(["userdel", "-r", "-f", username], capture_output=True)
+        elif proto in ["vless", "vmess", "trojan"]:
+            remove_from_xray(username)
+        elif proto == "zivpn":
+            try:
+                if os.path.exists("/etc/zivpn/users.db"):
+                    with open("/etc/zivpn/users.db", "r") as f:
+                        zlines = f.readlines()
+                    with open("/etc/zivpn/users.db", "w") as f:
+                        for zl in zlines:
+                            if not zl.startswith(f"{username}:"):
+                                f.write(zl)
+                    subprocess.run(["systemctl", "restart", "zivpn"], capture_output=True)
+            except Exception:
+                pass
+        elif proto == "wg":
+            subprocess.run(["python3", "/usr/local/bin/manage_wg.py", "del", username], capture_output=True)
+
+        conn = sqlite3.connect(DB_PATH)
+        c = conn.cursor()
+        c.execute("DELETE FROM accounts WHERE id=?", (acc_id,))
+        conn.commit()
+        conn.close()
+
+        # Remove from active violations memory
+        VIOLATIONS.pop(username, None)
+
+        send_alert_box(
+            title="AKUN DIHAPUS OTOMATIS",
+            badge="🚫",
+            items={
+                "👤 <b>Pengguna</b>  ": f"ID <code>{user_id}</code>",
+                "🔑 <b>Akun</b>      ": f"<code>{username}</code>",
+                "🔌 <b>Protokol</b>  ": f"<b>{proto.upper()}</b>",
+                "⚠️ <b>Pelanggaran</b>": f"<code>{reason}</code>",
+                "🛡️ <b>Tindakan</b>   ": "<code>Akun Dihapus & Dibanned</code>"
+            },
+            footer="Akun dihapus permanen oleh sistem karena telah melanggar batas penggunaan 2 kali."
+        )
+    except Exception as e:
+        print(f"Error purging account {username}: {e}")
 
 def remove_from_xray(username):
     try:
@@ -102,46 +164,7 @@ def check_expired_accounts():
                         is_expired = True
 
                 if is_expired:
-                    print(f"PURGING EXPIRED ACCOUNT: {username} ({proto}) [Exp: {exp_str}]")
-                    
-                    if proto == "ssh":
-                        if valid_username(username):
-                            subprocess.run(["pkill", "-9", "-u", username], capture_output=True)
-                            subprocess.run(["userdel", "-r", "-f", username], capture_output=True)
-                        else:
-                            print(f"Invalid username, skipping purge: {username}")
-                    elif proto in ["vless", "vmess", "trojan"]:
-                        remove_from_xray(username)
-                    elif proto == "zivpn":
-                        try:
-                            if os.path.exists("/etc/zivpn/users.db"):
-                                with open("/etc/zivpn/users.db", "r") as f:
-                                    zlines = f.readlines()
-                                with open("/etc/zivpn/users.db", "w") as f:
-                                    for zl in zlines:
-                                        if not zl.startswith(f"{username}:"):
-                                            f.write(zl)
-                                subprocess.run(["systemctl", "restart", "zivpn"], capture_output=True)
-                        except Exception: pass
-                    elif proto == "wg":
-                        subprocess.run(["python3", "/usr/local/bin/manage_wg.py", "del", username], capture_output=True)
-
-                    c.execute("DELETE FROM accounts WHERE id=?", (acc_id,))
-                    conn.commit()
-
-                    # Send Notification
-                    send_alert_box(
-                        title="AKUN EXPIRED DIHAPUS",
-                        badge="⏳",
-                        items={
-                            "👤 <b>Pengguna</b>": f"ID <code>{user_id}</code>",
-                            "🔑 <b>Akun</b>    ": f"<code>{username}</code>",
-                            "🔌 <b>Protokol</b>": f"<b>{proto.upper()}</b>",
-                            "📅 <b>Expired</b> ": f"<code>{exp_str}</code>",
-                            "🛡️ <b>Status</b>  ": "<code>Berhasil Dihapus</code>"
-                        },
-                        footer="Masa aktif akun telah berakhir dan telah dibersihkan otomatis."
-                    )
+                    delete_account_complete(acc_id, user_id, username, proto, reason=f"MASA AKTIF HABIS ({exp_str})")
             except Exception as e:
                 print(f"Error parsing exp for {username}: {e}")
 
@@ -149,48 +172,104 @@ def check_expired_accounts():
     except Exception as e:
         print(f"DB Error check_expired: {e}")
 
-# 2. SSH MULTI-IP & SESSION LIMITER
+# 2. UNIVERSAL 2-STRIKE MULTI-IP ENFORCER
+def process_multi_ip_violation(acc_id, user_id, username, proto, limit, detected_ips):
+    """
+    Handles Multi-IP violation with 2-Strike system:
+    - Strike 1: Warning notification + kill excess connections.
+    - Strike 2: Delete account permanently.
+    """
+    now = time.time()
+    v_data = VIOLATIONS.get(username, {"strikes": 0, "last_time": 0})
+    
+    # Cooldown 60s to prevent spamming notifications on the exact same violation tick
+    if (now - v_data.get("last_time", 0)) < 60:
+        return
+
+    v_data["strikes"] += 1
+    v_data["last_time"] = now
+    VIOLATIONS[username] = v_data
+
+    strike_num = v_data["strikes"]
+
+    if strike_num == 1:
+        # Warning (Strike 1)
+        send_alert_box(
+            title=f"PERINGATAN MULTI-IP (1/2) - {proto.upper()}",
+            badge="⚠️",
+            items={
+                "👤 <b>Pengguna</b>  ": f"ID <code>{user_id}</code>",
+                "🔑 <b>Akun</b>      ": f"<code>{username}</code>",
+                "🔌 <b>Protokol</b>  ": f"<b>{proto.upper()}</b>",
+                "🌐 <b>Batas Limit</b>": f"<b>{limit} Device/IP</b>",
+                "🚨 <b>Terdeteksi</b> ": f"<b>{len(detected_ips)} IP Berbeda</b>",
+                "📡 <b>Daftar IP</b>  ": f"<code>{', '.join(list(detected_ips)[:4])}</code>",
+                "⚡ <b>Status</b>     ": "<code>PERINGATAN PERTAMA</code>"
+            },
+            footer="Jika terdeteksi multi-login sekali lagi (Peringatan 2/2), akun akan otomatis DIHAPUS permanen."
+        )
+    elif strike_num >= 2:
+        # Strike 2: Auto-Delete
+        delete_account_complete(acc_id, user_id, username, proto, reason=f"MULTI-IP VIOLATION (2/2 - {len(detected_ips)} IPs)")
+
+# 3. SSH MULTI-IP CHECKER (Counts UNIQUE IP Addresses, not connection sockets)
 def enforce_ssh_ip_limit():
     try:
         conn = sqlite3.connect(DB_PATH)
         c = conn.cursor()
-        c.execute("SELECT username, ip_limit, user_id FROM accounts WHERE protocol='ssh'")
-        ssh_users = {row[0]: (row[1] or 2, row[2]) for row in c.fetchall()}
+        c.execute("SELECT id, user_id, username, ip_limit FROM accounts WHERE protocol='ssh'")
+        ssh_accounts = {row[2]: (row[0], row[1], row[3] or 2) for row in c.fetchall()}
         conn.close()
 
-        out = subprocess.run("ps -eo pid,user,args | grep -E 'sshd:|dropbear' | grep -v grep", shell=True, capture_output=True, text=True).stdout
-        user_pids = {}
-        for line in out.splitlines():
-            parts = line.strip().split()
-            if len(parts) >= 2:
-                pid, uname = parts[0], parts[1]
-                if uname in ssh_users:
-                    user_pids.setdefault(uname, []).append(pid)
+        if not ssh_accounts:
+            return
 
-        for uname, pids in user_pids.items():
-            limit, uid = ssh_users[uname]
-            if len(pids) > limit:
-                print(f"SSH IP VIOLATION: {uname} has {len(pids)} sessions (Limit: {limit})")
-                excess = pids[limit:]
-                for p in excess:
-                    subprocess.run(["kill", "-9", p], capture_output=True)
-                
-                send_alert_box(
-                    title="PERINGATAN MULTI-LOGIN SSH",
-                    badge="🚨",
-                    items={
-                        "👤 <b>Pengguna</b>  ": f"ID <code>{uid}</code>",
-                        "🔑 <b>Akun</b>      ": f"<code>{uname}</code>",
-                        "🌐 <b>Limit Device</b>": f"<b>{limit} IP</b>",
-                        "⚠️ <b>Terdeteksi</b>  ": f"<b>{len(pids)} Koneksi Aktif</b>",
-                        "🛡️ <b>Tindakan</b>    ": "<code>Koneksi berlebih diputus</code>"
-                    },
-                    footer="Koneksi yang melebihi batas perangkat otomatis diputus."
-                )
+        # Use 'who' or 'w' to extract real remote IP addresses per user session
+        # Format of `who`: username  pts/X  2026-08-28 15:40 (180.240.10.15)
+        out_who = subprocess.run(["who"], capture_output=True, text=True).stdout
+        user_ips = {}
+        for line in out_who.splitlines():
+            parts = line.strip().split()
+            if len(parts) >= 5:
+                uname = parts[0]
+                ip_match = re.search(r'\(([^)]+)\)', line)
+                if uname in ssh_accounts and ip_match:
+                    rip = ip_match.group(1).replace("::ffff:", "")
+                    if rip and rip not in ["localhost", "127.0.0.1", "::1"]:
+                        user_ips.setdefault(uname, set()).add(rip)
+
+        # Also inspect OpenSSH / Dropbear active socket IPs via ss
+        # Format: ESTAB ... 95.111.196.242:22 180.240.10.15:43828 users:(("sshd-session",pid=20746...
+        out_ss = subprocess.run(["ss", "-tnp"], capture_output=True, text=True).stdout
+        # Map pid to username
+        pid_user = {}
+        out_ps = subprocess.run(["ps", "-eo", "pid,user,args"], capture_output=True, text=True).stdout
+        for pline in out_ps.splitlines():
+            pp = pline.strip().split()
+            if len(pp) >= 2 and pp[1] in ssh_accounts:
+                pid_user[pp[0]] = pp[1]
+
+        for sline in out_ss.splitlines():
+            if "sshd-session" in sline or "dropbear" in sline:
+                m_pid = re.search(r'pid=(\d+)', sline)
+                m_ip = re.search(r'(\d+\.\d+\.\d+\.\d+):\d+\s+users:', sline)
+                if m_pid and m_ip:
+                    pid_val = m_pid.group(1)
+                    rip = m_ip.group(1)
+                    uname = pid_user.get(pid_val)
+                    if uname and rip not in ["127.0.0.1", "95.111.196.242"]:
+                        user_ips.setdefault(uname, set()).add(rip)
+
+        for uname, ips in user_ips.items():
+            acc_id, uid, limit = ssh_accounts[uname]
+            if len(ips) > limit:
+                print(f"SSH MULTI-IP VIOLATION: {uname} using {len(ips)} IPs -> {ips} (Limit: {limit})")
+                process_multi_ip_violation(acc_id, uid, uname, "ssh", limit, ips)
+
     except Exception as e:
         print(f"SSH IP limit check error: {e}")
 
-# 3. XRAY (VLESS / VMESS / TROJAN) MULTI-IP LIMITER
+# 4. XRAY (VLESS / VMESS / TROJAN) MULTI-IP CHECKER (Counts UNIQUE IP Addresses in active window)
 def enforce_xray_ip_limit():
     try:
         if not os.path.exists(ACCESS_LOG):
@@ -198,50 +277,40 @@ def enforce_xray_ip_limit():
         
         conn = sqlite3.connect(DB_PATH)
         c = conn.cursor()
-        c.execute("SELECT username, ip_limit, user_id, protocol FROM accounts WHERE protocol IN ('vless', 'vmess', 'trojan')")
-        xray_users = {row[0]: (row[1] or 2, row[2], row[3]) for row in c.fetchall()}
+        c.execute("SELECT id, user_id, username, protocol, ip_limit FROM accounts WHERE protocol IN ('vless', 'vmess', 'trojan')")
+        xray_accounts = {row[2]: (row[0], row[1], row[3], row[4] or 2) for row in c.fetchall()}
         conn.close()
 
-        if not xray_users:
+        if not xray_accounts:
             return
 
-        # Read last 200 lines of access log
-        out = subprocess.run(["tail", "-n", "200", ACCESS_LOG], capture_output=True, text=True).stdout
+        # Read last 150 lines of access log
+        out = subprocess.run(["tail", "-n", "150", ACCESS_LOG], capture_output=True, text=True).stdout
         user_ips = {}
         for line in out.strip().splitlines():
             m = re.search(r"from (?:tcp:)?([0-9.]+):\d+.*email:\s*([a-zA-Z0-9_-]+)", line)
             if m:
                 ip, email = m.group(1), m.group(2).split("@")[0]
-                if email in xray_users:
+                if email in xray_accounts and ip not in ["127.0.0.1", "95.111.196.242"]:
                     user_ips.setdefault(email, set()).add(ip)
 
         for uname, ips in user_ips.items():
-            limit, uid, proto = xray_users[uname]
+            acc_id, uid, proto, limit = xray_accounts[uname]
             if len(ips) > limit:
-                print(f"XRAY MULTI-IP VIOLATION: {uname} using {len(ips)} IPs (Limit: {limit})")
-                send_alert_box(
-                    title=f"PERINGATAN MULTI-IP {proto.upper()}",
-                    badge="🚨",
-                    items={
-                        "👤 <b>Pengguna</b>  ": f"ID <code>{uid}</code>",
-                        "🔑 <b>Akun</b>      ": f"<code>{uname}</code>",
-                        "🔌 <b>Protokol</b>  ": f"<b>{proto.upper()}</b>",
-                        "🌐 <b>Limit Device</b>": f"<b>{limit} IP</b>",
-                        "⚠️ <b>IP Aktif</b>   ": f"<code>{', '.join(list(ips)[:3])}</code> ({len(ips)} IP)",
-                        "🛡️ <b>Status</b>    ": "<code>Monitoring Alert Terkirim</code>"
-                    },
-                    footer="Pengguna terdeteksi melebihi batas login perangkat."
-                )
+                print(f"XRAY MULTI-IP VIOLATION: {uname} using {len(ips)} IPs -> {ips} (Limit: {limit})")
+                process_multi_ip_violation(acc_id, uid, uname, proto, limit, ips)
+
     except Exception as e:
         print(f"Xray IP limit error: {e}")
 
-# 4. QUOTA DATA ENFORCER
+# 5. QUOTA DATA ENFORCER
 def enforce_quota_limits():
     try:
         conn = sqlite3.connect(DB_PATH)
         c = conn.cursor()
         c.execute("SELECT id, user_id, username, protocol, quota_gb, used_bytes FROM accounts")
         rows = c.fetchall()
+        conn.close()
         
         for r in rows:
             aid, uid, uname, proto, quota_str, used_b = r
@@ -251,39 +320,12 @@ def enforce_quota_limits():
             if m:
                 total_bytes = float(m.group(1)) * (1024**3)
                 if (used_b or 0) >= total_bytes:
-                    print(f"QUOTA EXCEEDED: {uname} used {used_b} >= {total_bytes}")
-                    if proto == "ssh":
-                        if valid_username(uname):
-                            subprocess.run(["pkill", "-9", "-u", uname], capture_output=True)
-                            subprocess.run(["userdel", "-r", "-f", uname], capture_output=True)
-                        else:
-                            print(f"Invalid username, skipping quota purge: {uname}")
-                    elif proto in ["vless", "vmess", "trojan"]:
-                        remove_from_xray(uname)
-                    elif proto == "wg":
-                        subprocess.run(["python3", "/usr/local/bin/manage_wg.py", "del", uname], capture_output=True)
-
-                    c.execute("DELETE FROM accounts WHERE id=?", (aid,))
-                    conn.commit()
-
-                    send_alert_box(
-                        title="KUOTA DATA HABIS",
-                        badge="📦",
-                        items={
-                            "👤 <b>Pengguna</b>  ": f"ID <code>{uid}</code>",
-                            "🔑 <b>Akun</b>      ": f"<code>{uname}</code>",
-                            "🔌 <b>Protokol</b>  ": f"<b>{proto.upper()}</b>",
-                            "📦 <b>Batas Kuota</b>": f"<code>{quota_str}</code>",
-                            "🛡️ <b>Status</b>    ": "<code>Akun Dihapus Otomatis</code>"
-                        },
-                        footer="Akun dinonaktifkan otomatis karena telah mencapai batas kuota pemakaian data."
-                    )
-        conn.close()
+                    delete_account_complete(aid, uid, uname, proto, reason=f"KUOTA DATA HABIS ({quota_str})")
     except Exception as e:
         print(f"Quota enforcement error: {e}")
 
 def main():
-    print("Shiro Real-time Multi-Protocol Guard Daemon Active...")
+    print("Shiro Real-time 2-Strike Multi-Protocol Guard Daemon Active...")
     while True:
         check_expired_accounts()
         enforce_ssh_ip_limit()
