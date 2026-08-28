@@ -521,9 +521,18 @@ def execute_system_create(proto, user, password, days=30, ip_limit=2, quota="100
 
     # Natural Telegram Notification
     buyer_tag = f"@{user_name}" if user_name else f"ID {user_id}"
-    is_trial = exp_override and "Menit" in exp_override
-    dur_str = "30 Menit (Trial)" if is_trial else f"{days} Hari"
-    title_header = "🎁 <b>AKUN TRIAL BERHASIL DIBUAT</b>" if is_trial else "⚡ <b>AKUN BARU BERHASIL DIBUAT</b>"
+    is_trial = days == 1 and quota == "1 GB" and ip_limit == 1 and ("WIB" in exp_str and ("/" in exp_str or "Menit" in exp_str))
+    # Check if really trial (30 mins from now)
+    if "trial" in exp_str.lower() or (exp_override and not "/" in exp_override):
+        is_trial = True
+    
+    # Format duration string accurately
+    if is_trial and exp_override:
+        dur_str = "30 Menit (Trial)"
+        title_header = "🎁 <b>AKUN TRIAL BERHASIL DIBUAT</b>"
+    else:
+        dur_str = f"{days} Hari"
+        title_header = "⚡ <b>AKUN BARU BERHASIL DIBUAT</b>"
 
     notif_card = (
         f"{title_header}\n"
@@ -1065,10 +1074,10 @@ async def execute_trial(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await asyncio.sleep(0.3)
     await load_msg.edit_text("✨ <code>[▰▰▰▰▰▰▰▰▰▰] 100% Selesai!</code>", parse_mode="HTML")
 
-    # 30 mins expiry
+    # 30 mins expiry with exact timestamp
     now = datetime.datetime.now()
     exp_dt = now + datetime.timedelta(minutes=30)
-    exp_str = f"30 Menit ({exp_dt.strftime('%H:%M')} WIB)"
+    exp_str = exp_dt.strftime("%d/%m/%Y %H:%M:%S WIB")
     
     uid_res, exp_s, conf_link = execute_system_create(proto, t_id, t_pass, days=1, ip_limit=1, quota="1 GB", user_id=u.id, exp_override=exp_str, user_name=u.username or u.first_name)
 
