@@ -644,9 +644,38 @@ async def start_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"ℹ️ <i>Pengguna baru telah memulai interaksi dengan bot.</i>"
         )
 
-    # Handle deep-link arguments (e.g. /start renew_12 or /start acc_12)
+    # Handle deep-link arguments (e.g. /start renew_12 or /start acc_12 or /start vip_free)
     if context.args and len(context.args) > 0:
         arg = context.args[0]
+        if arg.startswith("vip_"):
+            clean_vip_user = arg.replace("vip_", "").strip()
+            conn = sqlite3.connect(DB_PATH)
+            c = conn.cursor()
+            c.execute("SELECT username, protocol, uuid_or_pass, exp_date, password, ip_limit, quota_gb FROM accounts WHERE username=? OR username=?", (clean_vip_user, f"{clean_vip_user}-vless"))
+            rows = c.fetchall()
+            conn.close()
+            if rows:
+                ssh_pass = ""
+                xray_uuid = ""
+                exp_str = ""
+                ip_l = "2 Device"
+                q_gb = "100 GB"
+                for r in rows:
+                    u_n, pr, u_p, e_d, p_w, il, qg = r
+                    exp_str = e_d
+                    ip_l = f"{il} Device" if il else "2 Device"
+                    q_gb = qg or "100 GB"
+                    if pr == "ssh":
+                        ssh_pass = p_w or u_p
+                    elif pr in ["vless", "vmess", "trojan"]:
+                        xray_uuid = u_p or p_w
+                if not ssh_pass: ssh_pass = xray_uuid
+                if not xray_uuid: xray_uuid = ssh_pass
+                card = format_all_in_one_account(clean_vip_user, ssh_pass, xray_uuid, exp_str, ip_limit=ip_l, quota=q_gb)
+                if update.message:
+                    await update.message.reply_text(card, parse_mode="HTML")
+                return
+
         if arg.startswith("renew_") or arg.startswith("acc_"):
             try:
                 aid = int(arg.replace("renew_", "").replace("acc_", ""))
@@ -1717,13 +1746,31 @@ Ketik <b>Kuota Data</b> (Contoh: <code>100 GB</code>, <code>50 GB</code>, atau <
         conn.close()
 
         vip_card = format_all_in_one_account(clean_user, ssh_pass, xray_uuid, exp_str, ip_limit=f"{ip_limit} Device", quota=quota)
+        bot_tag = get_setting("bot_username", BOT_USERNAME).replace("@", "")
         
-        # Send card to admin
-        await update.message.reply_text(
-            vip_card,
-            reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("« KEMBALI KE PANEL ADMIN", callback_data="menu_admin")]]),
-            parse_mode="HTML"
-        )
+        # Share text for public groups (anti-spam friendly)
+        share_card = f"""🚀 <b>FREE VIP ALL-IN-ONE TRIAL (AKTIF)</b>
+━━━━━━━━━━━━━━━━━━━━━━
+👤 <b>Username</b> : <code>{clean_user}</code>
+🔑 <b>Password</b> : <code>{ssh_pass}</code>
+🌐 <b>Server</b>   : <code>{get_setting('domain', DOMAIN)}</code> (Singapore 🇸🇬)
+📅 <b>Expired</b>  : {exp_str} ({days} Hari)
+📦 <b>Kuota</b>    : {quota} | <b>Limit:</b> {ip_limit} Device
+🔌 <b>Support</b>  : SSH WS, VLESS, VMESS, TROJAN
+━━━━━━━━━━━━━━━━━━━━━━
+📥 <b>Ambil Semua Config Lengkap:</b>
+👉 <a href="https://t.me/{bot_tag}?start=vip_{clean_user}">KLIK DISINI UNTUK AMBIL CONFIG LENGKAP</a>"""
+        
+        if update.message:
+            await update.message.reply_text(
+                vip_card,
+                reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("« KEMBALI KE PANEL ADMIN", callback_data="menu_admin")]]),
+                parse_mode="HTML"
+            )
+            await update.message.reply_text(
+                f"📋 <b>TEKS KHUSUS UNTUK DI-SHARE KE GRUP LAIN (ANTI-SPAM):</b>\n\n{share_card}",
+                parse_mode="HTML"
+            )
         return
     elif mode == "topup_user":
         target_id = re.sub(r"[^0-9]", "", raw)
