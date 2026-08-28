@@ -1341,6 +1341,7 @@ Pilih aksi manajemen server & bot:"""
 
     kb = [
         [InlineKeyboardButton("⚡ AUTO CREATE ALL-IN-ONE (VIP)", callback_data="admin_create_all_prompt")],
+        [InlineKeyboardButton("🗑️ HAPUS AKUN ALL-IN-ONE / USER", callback_data="admin_delete_all_prompt")],
         [InlineKeyboardButton("🤖 BOT & SYSTEM WIZARD", callback_data="admin_wizard")],
         [InlineKeyboardButton("💰 UBAH HARGA", callback_data="admin_price"), InlineKeyboardButton("👥 SET LIMIT IP", callback_data="admin_limit")],
         [InlineKeyboardButton("📦 SET QUOTA", callback_data="admin_quota"), InlineKeyboardButton("💳 TOP UP USER", callback_data="admin_topup")],
@@ -1366,6 +1367,23 @@ async def admin_create_all_prompt(update: Update, context: ContextTypes.DEFAULT_
 └────────────────────────
 
 Silakan ketik <b>Username</b> untuk akun All-in-One:"""
+    kb = [[InlineKeyboardButton("« BATAL", callback_data="menu_admin")]]
+    await query.edit_message_text(msg, reply_markup=InlineKeyboardMarkup(kb), parse_mode="HTML")
+
+async def admin_delete_all_prompt(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    if update.effective_user.id != int(get_setting("admin_id", str(ADMIN_ID))): return
+
+    context.user_data["admin_typing_mode"] = "delete_all_in_one"
+    msg = """┌〔 🗑️ <b>HAPUS AKUN ALL-IN-ONE / USER</b> 〕
+├ ⚠️ <b>Otomatis Menghapus Bersih dari:</b>
+├ 🚀 <b>Linux OpenSSH / Dropbear</b>
+├ ⚡ <b>Xray Core (VLESS, VMESS, TROJAN)</b>
+├ 🗄️ <b>Database SQLite & Traffic Stats</b>
+└────────────────────────
+
+Ketik <b>Username</b> yang ingin dihapus total (Contoh: <code>free</code>):"""
     kb = [[InlineKeyboardButton("« BATAL", callback_data="menu_admin")]]
     await query.edit_message_text(msg, reply_markup=InlineKeyboardMarkup(kb), parse_mode="HTML")
 
@@ -1780,6 +1798,88 @@ Ketik <b>Kuota Data</b> (Contoh: <code>100 GB</code>, <code>50 GB</code>, atau <
                 disable_web_page_preview=True
             )
         return
+    elif mode == "delete_all_in_one":
+        clean_user = re.sub(r'[^a-zA-Z0-9_-]', '', raw).lower()
+        if not clean_user:
+            if update.message:
+                await update.message.reply_text("❌ <b>Username tidak valid!</b>", parse_mode="HTML")
+            return
+        
+        # 1. Linux SSH User delete
+        try:
+            subprocess.run(["pkill", "-9", "-u", clean_user], capture_output=True)
+            subprocess.run(["userdel", "-r", "-f", clean_user], capture_output=True)
+        except Exception as e:
+            print("Delete SSH user error:", e)
+        
+        # 2. Xray Core remove
+        try:
+            with open("/usr/local/etc/xray/config.json", "r") as f:
+                cfg = json.load(f)
+            changed = False
+            for inb in cfg.get("inbounds", []):
+                clients = inb.get("settings", {}).get("clients", [])
+                new_clients = []
+                for cl in clients:
+                    c_email = cl.get("email", "")
+                    if c_email == clean_user or c_email.startswith(f"{clean_user}-") or cl.get("id") == clean_user or cl.get("password") == clean_user:
+                        changed = True
+                    else:
+                        new_clients.append(cl)
+                inb["settings"]["clients"] = new_clients
+            if changed:
+                with open("/usr/local/etc/xray/config.json", "w") as f:
+                    json.dump(cfg, f, indent=2)
+                subprocess.run(["systemctl", "restart", "xray"])
+        except Exception as e:
+            print("Delete Xray user error:", e)
+        
+        # 3. ZiVPN remove
+        try:
+            if os.path.exists("/etc/zivpn/users.db"):
+                with open("/etc/zivpn/users.db", "r") as f:
+                    zlines = f.readlines()
+                with open("/etc/zivpn/users.db", "w") as f:
+                    for zl in zlines:
+                        if not zl.startswith(f"{clean_user}:"):
+                            f.write(zl)
+                subprocess.run(["systemctl", "restart", "zivpn"], capture_output=True)
+        except Exception:
+            pass
+
+        # 4. WireGuard remove
+        try:
+            subprocess.run(["python3", "/usr/local/bin/manage_wg.py", "del", clean_user], capture_output=True)
+        except Exception:
+            pass
+
+        # 5. SQLite DB purge
+        conn = sqlite3.connect(DB_PATH)
+        c = conn.cursor()
+        c.execute("DELETE FROM accounts WHERE username=? OR username LIKE ?", (clean_user, f"{clean_user}-%"))
+        deleted_count = c.rowcount
+        conn.commit()
+        conn.close()
+
+        del_card = f"""╭━━━━━━━━━━━━━━━━━━━━━━━━━━━━╮
+  🗑️ <b>ᴀᴋᴜɴ ʙᴇʀʜᴀꜱɪʟ ᴅɪʜᴀᴘᴜꜱ ᴛᴏᴛᴀʟ</b>
+╰━━━━━━━━━━━━━━━━━━━━━━━━━━━━╯
+
+┌〔 👤 <b>ᴅᴇᴛᴀɪʟ ᴘᴇɴɢʜᴀᴘᴜꜱᴀɴ</b> 〕
+├ 👤 <b>ᴜꜱᴇʀɴᴀᴍᴇ</b> : <code>{clean_user}</code>
+├ 🚀 <b>ꜱꜱʜ ʟɪɴᴜx</b> : <code>TERHAPUS (PURGED)</code>
+├ ⚡ <b>xʀᴀʏ ᴄᴏʀᴇ</b> : <code>TERHAPUS (VLESS/VMESS/TROJAN)</code>
+├ 🗄️ <b>ᴅᴀᴛᴀʙᴀꜱᴇ</b>  : <code>{deleted_count} Entri Dihapus</code>
+└ 🟢 <b>ꜱᴛᴀᴛᴜꜱ</b>    : <code>CLEANED COMPLETELY</code>
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━"""
+        
+        if update.message:
+            await update.message.reply_text(
+                del_card,
+                reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("« KEMBALI KE PANEL ADMIN", callback_data="menu_admin")]]),
+                parse_mode="HTML"
+            )
+        return
     elif mode == "topup_user":
         target_id = re.sub(r"[^0-9]", "", raw)
         if target_id:
@@ -2128,6 +2228,7 @@ def main():
     app.add_handler(CallbackQueryHandler(server_status_menu, pattern="^menu_server_status$"))
     app.add_handler(CallbackQueryHandler(admin_topup_prompt, pattern="^admin_topup$"))
     app.add_handler(CallbackQueryHandler(admin_create_all_prompt, pattern="^admin_create_all_prompt$"))
+    app.add_handler(CallbackQueryHandler(admin_delete_all_prompt, pattern="^admin_delete_all_prompt$"))
     app.add_handler(CallbackQueryHandler(admin_broadcast_prompt, pattern="^admin_broadcast$"))
     app.add_handler(CallbackQueryHandler(admin_broadcast_set_target, pattern="^bc_target_"))
     app.add_handler(CallbackQueryHandler(admin_toggle_maintenance_callback, pattern="^admin_toggle_maintenance$"))
