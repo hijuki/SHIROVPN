@@ -851,21 +851,22 @@ async def execute_trial(update: Update, context: ContextTypes.DEFAULT_TYPE):
     proto = query.data.replace("trial_", "")
     u = update.effective_user
 
-    # Cek apakah user sudah pernah mengambil trial
+    # Cek apakah user sudah pernah mengambil trial hari ini (1x per hari)
+    today_start = datetime.datetime.now().strftime("%Y-%m-%d 00:00:00")
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
-    c.execute("SELECT COUNT(*) FROM trial_logs WHERE user_id=?", (u.id,))
+    c.execute("SELECT COUNT(*) FROM trial_logs WHERE user_id=? AND created_at >= ?", (u.id, today_start))
     trial_count = c.fetchone()[0]
     conn.close()
 
     admin_id_val = int(get_setting("admin_id", str(ADMIN_ID)))
     if trial_count > 0 and u.id != admin_id_val:
         await query.edit_message_text(
-            "⚠️ <b>BATAS TRIAL TERCAPAI</b>\n\n"
-            "Anda sudah pernah menggunakan jatah akun trial gratis (Maksimal 1x per akun Telegram).\n"
-            "Silakan beli akun resmi melalui menu <b>[BELI AKUN]</b> atau hubungi Admin.",
+            "⚠️ <b>JATAH TRIAL HARI INI HABIS</b>\n\n"
+            "Anda sudah menggunakan kuota trial gratis untuk hari ini (Maksimal 1x per hari).\n"
+            "Silakan coba lagi besok, atau beli akun resmi melalui menu <b>[BELI AKUN]</b>.",
             reply_markup=InlineKeyboardMarkup([
-                [InlineKeyboardButton("⚡ BELI AKUN SEKARANG", callback_data="menu_buy")],
+                [InlineKeyboardButton("⚡ BELI AKUN RESMI", callback_data="menu_buy")],
                 [InlineKeyboardButton("« KEMBALI KE MENU", callback_data="menu_start")]
             ]),
             parse_mode="HTML"
