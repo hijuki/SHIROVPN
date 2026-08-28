@@ -537,6 +537,26 @@ def execute_system_create(proto, user, password, days=30, ip_limit=2, quota="100
 # ================= UI HANDLERS =================
 
 # /start Dashboard
+def get_maintenance_card():
+    domain_val = get_setting("domain", DOMAIN)
+    admin_tag = get_setting("admin_user", ADMIN_USER)
+    return f"""╭━━━━━━━━━━━━━━━━━━━━━━╮
+  ⛔ <b>ꜱᴇʀᴠᴇʀ ᴍᴀɪɴᴛᴇɴᴀɴᴄᴇ</b> ⛔
+╰━━━━━━━━━━━━━━━━━━━━━━╯
+
+┌〔 ⚠️ <b>ᴘᴇᴍᴇʟɪʜᴀʀᴀᴀɴ ꜱɪꜱᴛᴇᴍ</b> 〕
+├ 🛠️ <b>ꜱᴛᴀᴛᴜꜱ</b>   : Sedang Dalam Pemeliharaan
+├ 🌐 <b>ꜱᴇʀᴠᴇʀ</b>   : <code>{domain_val}</code>
+├ ⏱️ <b>ᴇꜱᴛɪᴍᴀꜱɪ</b> : Segera Kembali Normal
+└────────────────────────
+
+💡 <b>Informasi Penting:</b>
+• Layanan pembuatan & trial akun baru sementara dinonaktifkan.
+• Akun VPN yang sudah aktif tetap dapat digunakan seperti biasa.
+• Hubungi Admin untuk info lebih lanjut: {admin_tag}
+
+🤝 <i>Mohon maaf atas ketidaknyamanan ini.</i>"""
+
 # /start Dashboard with Slot Machine Reveal Loader
 async def start_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data["admin_typing_mode"] = ""
@@ -621,6 +641,15 @@ async def start_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def buy_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
+    u = update.effective_user
+    admin_id_val = int(get_setting("admin_id", str(ADMIN_ID)))
+
+    # Check Maintenance Mode
+    if get_setting("maintenance_mode", "0") == "1" and u.id != admin_id_val:
+        kb = [[InlineKeyboardButton("« KEMBALI KE MENU", callback_data="menu_start")]]
+        await query.edit_message_text(get_maintenance_card(), reply_markup=InlineKeyboardMarkup(kb), parse_mode="HTML")
+        return ConversationHandler.END
+
     p_price = get_setting("price_per_day", "100")
     
     msg = f"""┌〔 🛒 <b>PILIH PROTOKOL VPN</b> 〕
@@ -859,6 +888,14 @@ async def cancel_conversation(update: Update, context: ContextTypes.DEFAULT_TYPE
 async def trial_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
+    u = update.effective_user
+    admin_id_val = int(get_setting("admin_id", str(ADMIN_ID)))
+
+    # Check Maintenance Mode
+    if get_setting("maintenance_mode", "0") == "1" and u.id != admin_id_val:
+        kb = [[InlineKeyboardButton("« KEMBALI KE MENU", callback_data="menu_start")]]
+        await query.edit_message_text(get_maintenance_card(), reply_markup=InlineKeyboardMarkup(kb), parse_mode="HTML")
+        return
     
     msg = """┌〔 🎁 <b>COBA GRATIS / TRIAL (30 MENIT)</b> 〕
 ├ ⏱️ <b>Durasi</b>   : 30 Menit (Auto-Purge)
@@ -1174,18 +1211,22 @@ async def admin_panel_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
     u = update.effective_user
-    if u.id != ADMIN_ID:
+    admin_id_val = int(get_setting("admin_id", str(ADMIN_ID)))
+    if u.id != admin_id_val:
         await query.answer("🔒 AKSES KHUSUS ADMIN MASTER!", show_alert=True)
         return
 
     price = get_setting("price_per_day", "100")
     limit = get_setting("default_ip_limit", "2")
     quota = get_setting("default_quota", "100 GB")
+    maint_status = get_setting("maintenance_mode", "0")
+    maint_btn_text = "⛔ MAINTENANCE: ON (🔴 AKTIF)" if maint_status == "1" else "🟢 MAINTENANCE: OFF (NORMAL)"
 
     msg = f"""┌〔 ⚙️ <b>PANEL ADMIN MASTER PRO</b> 〕
 ├ 💰 <b>Tarif Harian</b>   : Rp {price} / hari
 ├ 👥 <b>Default Limit</b>  : {limit} IP
 ├ 📦 <b>Default Quota</b>  : {quota}
+├ 🛠️ <b>Maintenance</b>    : {"🔴 AKTIF (Order Ditutup)" if maint_status == '1' else '🟢 NORMAL (Order Buka)'}
 └────────────────────────
 
 Pilih aksi manajemen server & bot:"""
@@ -1195,10 +1236,23 @@ Pilih aksi manajemen server & bot:"""
         [InlineKeyboardButton("💰 UBAH HARGA", callback_data="admin_price"), InlineKeyboardButton("👥 SET LIMIT IP", callback_data="admin_limit")],
         [InlineKeyboardButton("📦 SET QUOTA", callback_data="admin_quota"), InlineKeyboardButton("💳 TOP UP USER", callback_data="admin_topup")],
         [InlineKeyboardButton("📜 DAFTAR SEMUA AKUN", callback_data="admin_list_accounts"), InlineKeyboardButton("📢 BROADCAST", callback_data="admin_broadcast")],
+        [InlineKeyboardButton(maint_btn_text, callback_data="admin_toggle_maintenance")],
         [InlineKeyboardButton("🔄 RESTART SERVICE CORE", callback_data="admin_restart_core")],
         [InlineKeyboardButton("« KEMBALI KE MENU", callback_data="menu_start")]
     ]
     await query.edit_message_text(msg, reply_markup=InlineKeyboardMarkup(kb), parse_mode="HTML")
+
+async def admin_toggle_maintenance_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    if update.effective_user.id != int(get_setting("admin_id", str(ADMIN_ID))): return
+
+    current = get_setting("maintenance_mode", "0")
+    new_val = "0" if current == "1" else "1"
+    set_setting("maintenance_mode", new_val)
+
+    # Re-render admin panel
+    await admin_panel_menu(update, context)
 
 # Admin List Accounts Handler
 async def admin_list_accounts_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -1792,6 +1846,7 @@ def main():
     app.add_handler(CallbackQueryHandler(admin_topup_prompt, pattern="^admin_topup$"))
     app.add_handler(CallbackQueryHandler(admin_broadcast_prompt, pattern="^admin_broadcast$"))
     app.add_handler(CallbackQueryHandler(admin_broadcast_set_target, pattern="^bc_target_"))
+    app.add_handler(CallbackQueryHandler(admin_toggle_maintenance_callback, pattern="^admin_toggle_maintenance$"))
     app.add_handler(CallbackQueryHandler(admin_panel_menu, pattern="^menu_admin$"))
     app.add_handler(CallbackQueryHandler(admin_list_accounts_menu, pattern="^admin_list_accounts$"))
 
