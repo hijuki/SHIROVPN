@@ -338,7 +338,7 @@ conn.commit()
 conn.close()
 print('Owner settings saved to DB.')
 " "$new_oid" "$new_ousr"
-                    [ -n "$new_ousr" ] && sed -i "s/Admin     : @.*/Admin     : $new_ousr           │/" /etc/issue.net 2>/dev/null
+                    [ -n "$new_ousr" ] && sed -i "s/@Hillz126/$new_ousr/g" /etc/issue.net /etc/dropbear_banner 2>/dev/null; sed -i "s/@YourTelegramUsername/$new_ousr/g" /etc/issue.net /etc/dropbear_banner 2>/dev/null
                     systemctl restart shirobot
                     echo -e "\n${GREEN}✓ Owner ID & Username updated.${NC}"
                 fi
@@ -355,7 +355,7 @@ conn.commit()
 conn.close()
 print('Domain saved to DB.')
 " "$new_dom"
-                    sed -i "s/Domain   : .*/Domain   : $new_dom/" /etc/issue.net 2>/dev/null
+                    sed -i "s/sg1-shiro.my.id/$new_dom/g" /etc/issue.net /etc/dropbear_banner 2>/dev/null; sed -i "s/your-domain.com/$new_dom/g" /etc/issue.net /etc/dropbear_banner 2>/dev/null
                     systemctl restart shirobot
                     echo -e "\n${GREEN}✓ Domain updated to $new_dom${NC}"
                 fi

@@ -82,9 +82,11 @@ cp "${SCRIPT_DIR}/bin/menu" /usr/bin/menu
 chmod +x /usr/local/bin/*.py
 chmod +x /usr/bin/menu
 
-# Deploy banners & dropbear config
+# Deploy banners & dropbear config with dynamic user variables
+sed -i "s/sg1-shiro.my.id/$DOMAIN_INPUT/g" "${SCRIPT_DIR}/etc/issue.net"
+sed -i "s/@Hillz126/$ADMIN_USER_INPUT/g" "${SCRIPT_DIR}/etc/issue.net"
 cp "${SCRIPT_DIR}/etc/issue.net" /etc/issue.net
-cp "${SCRIPT_DIR}/etc/dropbear_banner" /etc/dropbear_banner
+cp "${SCRIPT_DIR}/etc/issue.net" /etc/dropbear_banner
 cp "${SCRIPT_DIR}/etc/dropbear.default" /etc/default/dropbear
 
 # Deploy systemd unit files
