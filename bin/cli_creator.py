@@ -260,22 +260,19 @@ def cli_create_account(proto):
     except Exception as e:
         pass
 
-    # Trigger Luxury Telegram Notification to Topic
-    cli_card = f"""╭━━━━━━━━━━━━━━━━━━━━━━╮
-      ⚡ <b>ꜱʏꜱᴀᴅᴍɪɴ ᴘʀᴏᴠɪꜱɪᴏɴɪɴɢ</b>
-╰━━━━━━━━━━━━━━━━━━━━━━╯
-
-┌〔 📄 <b>ᴀᴄᴄᴏᴜɴᴛ ᴅᴇᴛᴀɪʟꜱ</b> 〕
-├ 👤 <b>ᴜꜱᴇʀɴᴀᴍᴇ</b> : <code>{username}</code>
-├ 🔌 <b>ᴘʀᴏᴛᴏᴋᴏʟ</b> : <b>{proto.upper()}</b>
-├ ⏳ <b>ᴅᴜʀᴀꜱɪ</b>   : {days} Hari
-├ 🌐 <b>ʟɪᴍɪᴛ ɪᴘ</b> : {ip_limit_str}
-├ 📦 <b>ǫᴜᴏᴛᴀ</b>    : {quota_str}
-├ 📅 <b>ᴇxᴘɪʀᴇᴅ</b>  : <code>{exp_str}</code>
-└ 👑 <b>ᴏᴘᴇʀᴀᴛᴏʀ</b> : <code>ROOT CONSOLE</code>
-
-━━━━━━━━━━━━━━━━━━━━━━
-🛡 <i>Diprovisioning langsung via Terminal SSH VPS</i>"""
+    # Trigger Telegram Notification to Topic/Forum
+    cli_card = (
+        f"⚡ <b>AKUN BARU (CONSOLE SSH)</b>\n"
+        f"━━━━━━━━━━━━━━━━━━━━━━\n"
+        f"👤 <b>Operator</b> : <code>ROOT CONSOLE</code>\n"
+        f"🔑 <b>Akun</b>     : <code>{username}</code>\n"
+        f"🔌 <b>Protokol</b> : <b>{proto.upper()}</b>\n"
+        f"⏳ <b>Durasi</b>   : {days} Hari\n"
+        f"📦 <b>Kuota</b>    : {quota_str}\n"
+        f"🌐 <b>Limit IP</b> : {ip_limit_str}\n"
+        f"📅 <b>Expired</b>  : <code>{exp_str}</code>\n"
+        f"━━━━━━━━━━━━━━━━━━━━━━"
+    )
     try:
         subprocess.Popen(["python3", "/usr/local/bin/send_notif.py", cli_card])
     except:

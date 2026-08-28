@@ -431,7 +431,7 @@ def format_wg_account(user, exp_str, client_conf="", ip_limit=2, quota="100 GB")
 🤝 <i>Terima kasih telah menggunakan layanan kami.</i>"""
 
 # ================= PROVISIONING ENGINE =================
-def execute_system_create(proto, user, password, days=30, ip_limit=2, quota="100 GB", user_id=0, exp_override=None):
+def execute_system_create(proto, user, password, days=30, ip_limit=2, quota="100 GB", user_id=0, exp_override=None, user_name=""):
     now = datetime.datetime.now()
     if exp_override:
         exp_str = exp_override
@@ -506,22 +506,20 @@ def execute_system_create(proto, user, password, days=30, ip_limit=2, quota="100
     conn.commit()
     conn.close()
 
-    # Send Luxury Notification to forum
-    notif_card = f"""╭━━━━━━━━━━━━━━━━━━━━━━╮
-      ⚡ <b>ᴀᴋᴜɴ ᴠᴘɴ ʙᴀʀᴜ ᴅɪʙᴜᴀᴛ</b>
-╰━━━━━━━━━━━━━━━━━━━━━━╯
-
-┌〔 📄 <b>ᴀᴄᴄᴏᴜɴᴛ ᴅᴇᴛᴀɪʟꜱ</b> 〕
-├ 👤 <b>ᴜꜱᴇʀɴᴀᴍᴇ</b> : <code>{user}</code>
-├ 🔌 <b>ᴘʀᴏᴛᴏᴋᴏʟ</b> : <b>{proto.upper()}</b>
-├ ⏳ <b>ᴅᴜʀᴀꜱɪ</b>   : {days} Hari
-├ 🌐 <b>ʟɪᴍɪᴛ ɪᴘ</b> : {ip_limit} IP
-├ 📦 <b>ǫᴜᴏᴛᴀ</b>    : {quota}
-├ 📅 <b>ᴇxᴘɪʀᴇᴅ</b>  : <code>{exp_str}</code>
-└ 🟢 <b>ꜱᴛᴀᴛᴜꜱ</b>   : <code>ACTIVE</code>
-
-━━━━━━━━━━━━━━━━━━━━━━
-🤖 <i>Dibuat via Shiro Telegram Bot Official</i>"""
+    # Natural Telegram Notification
+    buyer_tag = f"@{user_name}" if user_name else f"ID {user_id}"
+    notif_card = (
+        f"⚡ <b>AKUN BARU BERHASIL DIBUAT</b>\n"
+        f"━━━━━━━━━━━━━━━━━━━━━━\n"
+        f"👤 <b>Pembeli</b>  : {buyer_tag} (<code>{user_id}</code>)\n"
+        f"🔑 <b>Akun</b>     : <code>{user}</code>\n"
+        f"🔌 <b>Protokol</b> : <b>{proto.upper()}</b>\n"
+        f"⏳ <b>Durasi</b>   : {days} Hari\n"
+        f"📦 <b>Kuota</b>    : {quota}\n"
+        f"🌐 <b>Limit IP</b> : {ip_limit} IP\n"
+        f"📅 <b>Expired</b>  : <code>{exp_str}</code>\n"
+        f"━━━━━━━━━━━━━━━━━━━━━━"
+    )
     send_telegram_notif(notif_card)
 
     return uid_str, exp_str, config_link
@@ -792,7 +790,7 @@ async def finish_buy_flow(update: Update, context: ContextTypes.DEFAULT_TYPE, ip
     await asyncio.sleep(0.3)
 
     # Execute system provisioning
-    uid_res, exp_str, conf_link = execute_system_create(proto, user, password, days=days, ip_limit=ip_limit, quota=quota, user_id=u.id)
+    uid_res, exp_str, conf_link = execute_system_create(proto, user, password, days=days, ip_limit=ip_limit, quota=quota, user_id=u.id, user_name=u.username or u.first_name)
 
     # Format result
     if proto == "ssh":
@@ -858,7 +856,7 @@ async def execute_trial(update: Update, context: ContextTypes.DEFAULT_TYPE):
     exp_dt = now + datetime.timedelta(minutes=30)
     exp_str = f"30 Menit ({exp_dt.strftime('%H:%M')} WIB)"
     
-    uid_res, exp_s, conf_link = execute_system_create(proto, t_id, t_pass, days=1, ip_limit=1, quota="1 GB", user_id=u.id, exp_override=exp_str)
+    uid_res, exp_s, conf_link = execute_system_create(proto, t_id, t_pass, days=1, ip_limit=1, quota="1 GB", user_id=u.id, exp_override=exp_str, user_name=u.username or u.first_name)
 
     if proto == "ssh":
         card = format_ssh_account(t_id, t_pass, exp_str, ip_limit=1, quota="1 GB")
@@ -1350,6 +1348,20 @@ async def admin_custom_input(update: Update, context: ContextTypes.DEFAULT_TYPE)
                 reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("« KEMBALI KE ADMIN", callback_data="menu_admin")]]),
                 parse_mode="HTML"
             )
+            # Send natural telegram notif to forum/group
+            admin_u = update.effective_user
+            admin_name = f"@{admin_u.username}" if admin_u.username else f"ID {admin_u.id}"
+            target_name = f"@{u_info['username']}" if u_info.get('username') else f"ID {target_id}"
+            send_telegram_notif(
+                f"💳 <b>TOP UP SALDO SUKSES</b>\n"
+                f"━━━━━━━━━━━━━━━━━━━━━━\n"
+                f"👤 <b>Pengguna</b>   : {target_name} (<code>{target_id}</code>)\n"
+                f"💰 <b>Nominal</b>    : Rp {amt_int:,}\n"
+                f"💳 <b>Saldo Baru</b> : Rp {u_info['balance']:,}\n"
+                f"👑 <b>Oleh Admin</b> : {admin_name}\n"
+                f"━━━━━━━━━━━━━━━━━━━━━━"
+            )
+
             try:
                 await context.bot.send_message(
                     chat_id=target_id,
@@ -1546,14 +1558,17 @@ async def renew_input_days(update: Update, context: ContextTypes.DEFAULT_TYPE):
         except Exception:
             pass
 
-    # Send notif
+    # Send natural notif
     send_telegram_notif(
-        f"🔄 <b>RENEW ACCOUNT BERHASIL</b>\n"
-        f"👤 User: @{u.username or u.first_name} (<code>{u.id}</code>)\n"
-        f"🔌 Account: <code>{uname}</code> ({proto.upper()})\n"
-        f"⏱️ Tambahan: +{days} Hari\n"
-        f"📅 Exp Baru: <code>{new_exp_str}</code>\n"
-        f"💰 Biaya: Rp {total_cost:,}"
+        f"🔄 <b>PERPANJANG AKUN BERHASIL</b>\n"
+        f"━━━━━━━━━━━━━━━━━━━━━━\n"
+        f"👤 <b>Pengguna</b>   : @{u.username or u.first_name} (<code>{u.id}</code>)\n"
+        f"🔑 <b>Akun</b>       : <code>{uname}</code>\n"
+        f"🔌 <b>Protokol</b>   : <b>{proto.upper()}</b>\n"
+        f"⏱️ <b>Tambahan</b>   : +{days} Hari\n"
+        f"📅 <b>Expired Baru</b>: <code>{new_exp_str}</code>\n"
+        f"💰 <b>Biaya</b>      : Rp {total_cost:,}\n"
+        f"━━━━━━━━━━━━━━━━━━━━━━"
     )
 
     msg = f"""┌〔 ✅ <b>RENEW AKUN BERHASIL!</b> 〕

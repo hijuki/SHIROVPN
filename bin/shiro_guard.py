@@ -20,19 +20,14 @@ def send_alert_box(title, badge, items, footer=""):
         sys.path.append("/usr/local/bin")
         from send_notif import send_notif
         body = [
-            "╭━━━━━━━━━━━━━━━━━━━━━━╮",
-            f"  {badge} <b>{title}</b>",
-            "╰━━━━━━━━━━━━━━━━━━━━━━╯\n",
-            "┌〔 📄 <b>ᴛᴇʟᴇᴍᴇᴛʀʏ ɪɴꜰᴏ</b> 〕"
+            f"{badge} <b>{title.upper()}</b>",
+            "━━━━━━━━━━━━━━━━━━━━━━"
         ]
-        for idx, (k, v) in enumerate(items.items()):
-            prefix = "└" if idx == len(items) - 1 else "├"
-            body.append(f"{prefix} {k} : {v}")
-        body.append("\n━━━━━━━━━━━━━━━━━━━━━━")
+        for k, v in items.items():
+            body.append(f"{k} : {v}")
+        body.append("━━━━━━━━━━━━━━━━━━━━━━")
         if footer:
-            body.append(f"<i>{footer}</i>")
-        else:
-            body.append("🤖 <i>Shiro Automatic Security Guard Daemon</i>")
+            body.append(f"ℹ️ <i>{footer}</i>")
         send_notif("\n".join(body))
     except Exception as e:
         print(f"Error sending alert: {e}")
@@ -135,16 +130,16 @@ def check_expired_accounts():
 
                     # Send Notification
                     send_alert_box(
-                        title="ᴀᴋᴜɴ ᴇxᴘɪʀᴇᴅ ᴅɪᴘᴜʀɢᴇ",
+                        title="AKUN EXPIRED DIHAPUS",
                         badge="⏳",
                         items={
-                            "👤 <b>ᴜꜱᴇʀɴᴀᴍᴇ</b>": f"<code>{username}</code>",
-                            "🔌 <b>ᴘʀᴏᴛᴏᴋᴏʟ</b>": f"<b>{proto.upper()}</b>",
-                            "📅 <b>ᴇxᴘɪʀᴇᴅ</b> ": f"<code>{exp_str}</code>",
-                            "🆔 <b>ᴜꜱᴇʀ ɪᴅ</b> ": f"<code>{user_id}</code>",
-                            "🛡️ <b>ᴀᴋꜱɪ</b>    ": "<code>AUTO PURGED (DELETED)</code>"
+                            "👤 <b>Pengguna</b>": f"ID <code>{user_id}</code>",
+                            "🔑 <b>Akun</b>    ": f"<code>{username}</code>",
+                            "🔌 <b>Protokol</b>": f"<b>{proto.upper()}</b>",
+                            "📅 <b>Expired</b> ": f"<code>{exp_str}</code>",
+                            "🛡️ <b>Status</b>  ": "<code>Berhasil Dihapus</code>"
                         },
-                        footer="Masa aktif akun telah berakhir dan telah dihapus dari server."
+                        footer="Masa aktif akun telah berakhir dan telah dihapus dari sistem."
                     )
             except Exception as e:
                 print(f"Error parsing exp for {username}: {e}")
@@ -179,16 +174,16 @@ def enforce_ssh_ip_limit():
                     subprocess.run(["kill", "-9", p], capture_output=True)
                 
                 send_alert_box(
-                    title="ᴘᴇʟᴀɴɢɢᴀʀᴀɴ ʟɪᴍɪᴛ ɪᴘ ꜱꜱʜ",
+                    title="PERINGATAN MULTI-LOGIN SSH",
                     badge="🚨",
                     items={
-                        "👤 <b>ᴜꜱᴇʀɴᴀᴍᴇ</b>  ": f"<code>{uname}</code>",
-                        "🌐 <b>ʙᴀᴛᴀꜱ ʟɪᴍɪᴛ</b>": f"<b>{limit} IP Device</b>",
-                        "⚠️ <b>ᴛᴇʀᴅᴇᴛᴇᴋꜱɪ</b> ": f"<b>{len(pids)} Koneksi Aktif</b>",
-                        "🛡️ <b>ᴛɪɴᴅᴀᴋᴀɴ</b>  ": "<code>Koneksi Berlebih Telah Diputus</code>",
-                        "🆔 <b>ᴜꜱᴇʀ ɪᴅ</b>   ": f"<code>{uid}</code>"
+                        "👤 <b>Pengguna</b>  ": f"ID <code>{uid}</code>",
+                        "🔑 <b>Akun</b>      ": f"<code>{uname}</code>",
+                        "🌐 <b>Limit Device</b>": f"<b>{limit} IP</b>",
+                        "⚠️ <b>Terdeteksi</b>  ": f"<b>{len(pids)} Koneksi Aktif</b>",
+                        "🛡️ <b>Tindakan</b>    ": "<code>Koneksi berlebih diputus</code>"
                     },
-                    footer="Peringatan: Multi-login melebihi kuota perangkat yang diizinkan."
+                    footer="Koneksi yang melebihi batas perangkat otomatis diputus."
                 )
     except Exception as e:
         print(f"SSH IP limit check error: {e}")

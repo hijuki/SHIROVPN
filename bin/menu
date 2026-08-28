@@ -446,18 +446,13 @@ print('Bot Token saved to DB.')
     12)
         echo -e "\n${CYAN}Mengirim luxury notification test ke topik forum...${NC}"
         TIME_NOW=$(TZ=Asia/Jakarta date "+%d/%m/%Y %H:%M WIB")
-        TEST_MSG="╭━━━━━━━━━━━━━━━━━━━━━━╮
-      ✨ <b>ꜱʜɪʀᴏ ɴᴏᴛɪꜰɪᴄᴀᴛɪᴏɴ ꜱʏꜱᴛᴇᴍ</b>
-╰━━━━━━━━━━━━━━━━━━━━━━╯
-
-┌〔 📄 <b>ꜱʏꜱᴛᴇᴍ ᴛᴇʟᴇᴍᴇᴛʀʏ</b> 〕
-├ 🌐 <b>ᴅᴏᴍᴀɪɴ</b>   : <code>$DOMAIN</code>
-├ ⚡ <b>ꜱᴛᴀᴛᴜꜱ</b>   : <code>ALL ENGINES ONLINE</code>
-├ 🕒 <b>ᴡᴀᴋᴛᴜ</b>    : <code>$TIME_NOW</code>
-└ 👑 <b>ᴏᴡɴᴇʀ</b>    : @YourTelegramUsername
-
+        TEST_MSG="⚡ <b>UJI COBA NOTIFIKASI FORUM</b>
 ━━━━━━━━━━━━━━━━━━━━━━
-🤝 <i>Uji coba siaran telemetri topik forum berhasil terhubung!</i>"
+🌐 <b>Domain</b> : <code>$DOMAIN</code>
+⚡ <b>Status</b> : <code>Online</code>
+🕒 <b>Waktu</b>  : <code>$TIME_NOW</code>
+━━━━━━━━━━━━━━━━━━━━━━
+<i>Notifikasi berhasil terhubung dengan topik forum Telegram.</i>"
         python3 /usr/local/bin/send_notif.py "$TEST_MSG"
         echo -e "${GREEN}✓ Notifikasi berhasil dikirim.${NC}"
         read -p "Press Enter to return..."
