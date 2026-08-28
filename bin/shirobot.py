@@ -536,31 +536,32 @@ def execute_system_create(proto, user, password, days=30, ip_limit=2, quota="100
 
 # ================= UI HANDLERS =================
 
-def format_all_in_one_account(user, password, exp_str, ip_limit="2 IP", quota="100 GB"):
+def format_all_in_one_account(user, ssh_password, xray_uuid, exp_str, ip_limit="2 IP", quota="100 GB"):
     domain_val = get_setting("domain", DOMAIN)
     admin_tag = get_setting("admin_user", ADMIN_USER)
 
-    vless_ws = f"vless://{password}@{domain_val}:443?path=%2Fvless&security=tls&encryption=none&type=ws&sni={domain_val}#{user}-VLESS"
-    vless_grpc = f"vless://{password}@{domain_val}:443?mode=gun&security=tls&encryption=none&type=grpc&serviceName=vless-grpc&sni={domain_val}#{user}-gRPC"
+    vless_ws = f"vless://{xray_uuid}@{domain_val}:443?path=%2Fvless&security=tls&encryption=none&type=ws&sni={domain_val}#{user}-VLESS"
+    vless_grpc = f"vless://{xray_uuid}@{domain_val}:443?mode=gun&security=tls&encryption=none&type=grpc&serviceName=vless-grpc&sni={domain_val}#{user}-gRPC"
     
     import base64
-    raw_vmess = {"v": "2", "ps": f"{user}-VMESS", "add": domain_val, "port": "443", "id": password, "aid": "0", "scy": "auto", "net": "ws", "type": "none", "host": domain_val, "path": "/vmess", "tls": "tls", "sni": domain_val}
+    raw_vmess = {"v": "2", "ps": f"{user}-VMESS", "add": domain_val, "port": "443", "id": xray_uuid, "aid": "0", "scy": "auto", "net": "ws", "type": "none", "host": domain_val, "path": "/vmess", "tls": "tls", "sni": domain_val}
     vmess_ws = f"vmess://{base64.b64encode(json.dumps(raw_vmess).encode()).decode()}"
     
-    trojan_ws = f"trojan://{password}@{domain_val}:443?path=%2Ftrojan-ws&security=tls&type=ws&sni={domain_val}#{user}-TROJAN"
-    trojan_grpc = f"trojan://{password}@{domain_val}:443?mode=gun&security=tls&type=grpc&serviceName=trojan-grpc&sni={domain_val}#{user}-Trojan-gRPC"
+    trojan_ws = f"trojan://{xray_uuid}@{domain_val}:443?path=%2Ftrojan-ws&security=tls&type=ws&sni={domain_val}#{user}-TROJAN"
+    trojan_grpc = f"trojan://{xray_uuid}@{domain_val}:443?mode=gun&security=tls&type=grpc&serviceName=trojan-grpc&sni={domain_val}#{user}-Trojan-gRPC"
 
     return f"""╭━━━━━━━━━━━━━━━━━━━━━━━━━━━━╮
   🌟 <b>ᴀʟʟ-ɪɴ-ᴏɴᴇ ᴠɪᴘ ᴀᴄᴄᴏᴜɴᴛ</b> 🌟
 ╰━━━━━━━━━━━━━━━━━━━━━━━━━━━━╯
 
 ┌〔 👤 <b>ɪɴꜰᴏʀᴍᴀꜱɪ ᴀᴋᴜɴ ᴍᴀꜱᴛᴇʀ</b> 〕
-├ 👤 <b>ᴜꜱᴇʀɴᴀᴍᴇ</b> : <code>{user}</code>
-├ 🔑 <b>ᴘᴀꜱꜱ / ᴜᴜɪᴅ</b>: <code>{password}</code>
-├ 📅 <b>ᴇxᴘɪʀᴇᴅ</b>  : <code>{exp_str}</code>
-├ 🌐 <b>ɪᴘ ʟɪᴍɪᴛ</b> : {ip_limit}
-├ 📦 <b>ǫᴜᴏᴛᴀ</b>    : {quota}
-└ 🟢 <b>ꜱᴛᴀᴛᴜꜱ</b>   : <code>ACTIVE (ALL PROTOCOLS)</code>
+├ 👤 <b>ᴜꜱᴇʀɴᴀᴍᴇ</b>  : <code>{user}</code>
+├ 🔑 <b>ꜱꜱʜ ᴘᴀꜱꜱ</b>  : <code>{ssh_password}</code>
+├ 🔐 <b>xʀᴀʏ ᴜᴜɪᴅ</b> : <code>{xray_uuid}</code>
+├ 📅 <b>ᴇxᴘɪʀᴇᴅ</b>   : <code>{exp_str}</code>
+├ 🌐 <b>ɪᴘ ʟɪᴍɪᴛ</b>  : {ip_limit}
+├ 📦 <b>ǫᴜᴏᴛᴀ</b>     : {quota}
+└ 🟢 <b>ꜱᴛᴀᴛᴜꜱ</b>    : <code>ACTIVE (ALL PROTOCOLS)</code>
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 🌍 <b>ꜱᴇʀᴠᴇʀ:</b> <code>{domain_val}</code> (UpCloud Singapore 🇸🇬)
@@ -570,7 +571,7 @@ def format_all_in_one_account(user, password, exp_str, ip_limit="2 IP", quota="1
 ├ 🔌 <b>Port TLS/WS</b>: <code>443</code> (/ssh-ws) | <b>OpenSSH</b>: <code>80, 22</code> | <b>Dropbear</b>: <code>109, 110</code>
 ├ 🎮 <b>BadVPN UDP</b>: <code>7100-7900</code>
 ├ 📱 <b>HTTP Custom:</b>
-<code>{domain_val}:80@{user}:{password}</code>
+<code>{domain_val}:80@{user}:{ssh_password}</code>
 └ 📄 <b>Payload WS SSL:</b>
 <code>GET /ssh-ws HTTP/1.1[crlf]Host: {domain_val}[crlf]Upgrade: websocket[crlf][crlf]</code>
 
@@ -1597,8 +1598,24 @@ async def admin_custom_input(update: Update, context: ContextTypes.DEFAULT_TYPE)
             await update.message.reply_text("❌ <b>Username minimal 3 karakter alfabet/angka!</b>", reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("« KEMBALI", callback_data="menu_admin")]]), parse_mode="HTML")
             return
         
-        # Auto-generate password / UUID key
-        auto_pass = str(uuid.uuid4())
+        context.user_data["vip_user"] = clean_user
+        context.user_data["admin_typing_mode"] = "create_all_pass"
+        msg = f"""┌〔 🔑 <b>CUSTOM PASSWORD SSH & VIP</b> 〕
+├ 👤 <b>Username</b> : <code>{clean_user}</code>
+└────────────────────────
+
+Ketik <b>Password SSH Custom</b> yang diinginkan (Contoh: <code>pass123</code>):"""
+        kb = [[InlineKeyboardButton("« BATAL", callback_data="menu_admin")]]
+        await update.message.reply_text(msg, reply_markup=InlineKeyboardMarkup(kb), parse_mode="HTML")
+        return
+    elif mode == "create_all_pass":
+        clean_user = context.user_data.get("vip_user", "vipuser")
+        ssh_pass = raw.strip()
+        if not ssh_pass:
+            ssh_pass = str(uuid.uuid4())[:8]
+        
+        # UUID key for Xray
+        xray_uuid = str(uuid.uuid4())
         days = 30
         now = datetime.datetime.now()
         exp_dt = now + datetime.timedelta(days=days)
@@ -1607,16 +1624,16 @@ async def admin_custom_input(update: Update, context: ContextTypes.DEFAULT_TYPE)
         ip_limit = int(get_setting("default_ip_limit", "2"))
         u_id = update.effective_user.id
 
-        # 1. Linux SSH
+        # 1. Linux SSH with custom password
         try:
             chage_exp = exp_dt.strftime("%Y-%m-%d")
             subprocess.run(["useradd", "-M", "-s", "/bin/false", "-e", chage_exp, clean_user], capture_output=True)
             p = subprocess.Popen(["chpasswd"], stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-            p.communicate(input=f"{clean_user}:{auto_pass}\n".encode())
+            p.communicate(input=f"{clean_user}:{ssh_pass}\n".encode())
         except Exception as e:
             print("SSH VIP creation error:", e)
 
-        # 2. Xray Core (VLESS, VMESS, TROJAN)
+        # 2. Xray Core (VLESS, VMESS, TROJAN) with xray_uuid
         try:
             with open("/usr/local/etc/xray/config.json", "r") as f:
                 cfg = json.load(f)
@@ -1624,11 +1641,11 @@ async def admin_custom_input(update: Update, context: ContextTypes.DEFAULT_TYPE)
                 t = inb.get("tag", "")
                 clients = inb.get("settings", {}).get("clients", [])
                 if t == "vless-ws-inbound":
-                    clients.append({"id": auto_pass, "email": clean_user, "alterId": 0})
+                    clients.append({"id": xray_uuid, "email": clean_user, "alterId": 0})
                 elif t == "vmess-ws-inbound":
-                    clients.append({"id": auto_pass, "email": clean_user, "alterId": 0})
+                    clients.append({"id": xray_uuid, "email": clean_user, "alterId": 0})
                 elif t == "trojan-ws-inbound":
-                    clients.append({"password": auto_pass, "email": clean_user})
+                    clients.append({"password": xray_uuid, "email": clean_user})
             with open("/usr/local/etc/xray/config.json", "w") as f:
                 json.dump(cfg, f, indent=2)
             subprocess.run(["systemctl", "restart", "xray"])
@@ -1639,14 +1656,15 @@ async def admin_custom_input(update: Update, context: ContextTypes.DEFAULT_TYPE)
         conn = sqlite3.connect(DB_PATH)
         c = conn.cursor()
         for p_type in ["ssh", "vless", "vmess", "trojan"]:
+            secret_val = ssh_pass if p_type == "ssh" else xray_uuid
             c.execute("""INSERT OR REPLACE INTO accounts 
                 (user_id, username, protocol, uuid_or_pass, exp_date, password, days, quota_gb, ip_limit, uuid, config_link, used_bytes, used_gb)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 0.0)""",
-                (u_id, f"{clean_user}-{p_type}" if p_type != "ssh" else clean_user, p_type, auto_pass, exp_str, auto_pass, days, quota, ip_limit, auto_pass, ""))
+                (u_id, f"{clean_user}-{p_type}" if p_type != "ssh" else clean_user, p_type, secret_val, exp_str, secret_val, days, quota, ip_limit, secret_val, ""))
         conn.commit()
         conn.close()
 
-        vip_card = format_all_in_one_account(clean_user, auto_pass, exp_str, ip_limit=f"{ip_limit} Device", quota=quota)
+        vip_card = format_all_in_one_account(clean_user, ssh_pass, xray_uuid, exp_str, ip_limit=f"{ip_limit} Device", quota=quota)
         
         # Send card to admin
         await update.message.reply_text(
