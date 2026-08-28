@@ -130,7 +130,8 @@ def init_db():
         uuid TEXT DEFAULT '',
         config_link TEXT DEFAULT '',
         used_bytes INTEGER DEFAULT 0,
-        used_gb REAL DEFAULT 0.0
+        used_gb REAL DEFAULT 0.0,
+        auto_renew INTEGER DEFAULT 0
     )""")
     c.execute("""CREATE TABLE IF NOT EXISTS settings (
         key TEXT PRIMARY KEY,
@@ -946,6 +947,29 @@ async def my_accounts_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
     kb.append([InlineKeyboardButton("« KEMBALI", callback_data="menu_start")])
     await query.edit_message_text(msg, reply_markup=InlineKeyboardMarkup(kb), parse_mode="HTML")
 
+async def toggle_auto_renew_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    try:
+        acc_id = int(query.data.replace("toggle_ar_", ""))
+    except (ValueError, AttributeError):
+        return
+
+    conn = sqlite3.connect(DB_PATH)
+    c = conn.cursor()
+    c.execute("SELECT auto_renew, username FROM accounts WHERE id=?", (acc_id,))
+    row = c.fetchone()
+    if row:
+        new_val = 0 if row[0] == 1 else 1
+        c.execute("UPDATE accounts SET auto_renew=? WHERE id=?", (new_val, acc_id))
+        conn.commit()
+    conn.close()
+
+    # Refresh the account detail view directly
+    context.user_data["temp_acc_id"] = acc_id
+    query.data = f"acc_view_{acc_id}"
+    await account_detail_menu(update, context)
+
 # View Account Detail
 async def account_detail_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
@@ -961,9 +985,9 @@ async def account_detail_menu(update: Update, context: ContextTypes.DEFAULT_TYPE
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
     if u_id == admin_id_val:
-        c.execute("SELECT username, protocol, uuid_or_pass, exp_date, password, ip_limit, quota_gb, config_link FROM accounts WHERE id=?", (acc_id,))
+        c.execute("SELECT username, protocol, uuid_or_pass, exp_date, password, ip_limit, quota_gb, config_link, auto_renew FROM accounts WHERE id=?", (acc_id,))
     else:
-        c.execute("SELECT username, protocol, uuid_or_pass, exp_date, password, ip_limit, quota_gb, config_link FROM accounts WHERE id=? AND user_id=?", (acc_id, u_id))
+        c.execute("SELECT username, protocol, uuid_or_pass, exp_date, password, ip_limit, quota_gb, config_link, auto_renew FROM accounts WHERE id=? AND user_id=?", (acc_id, u_id))
     row = c.fetchone()
     conn.close()
 
@@ -971,7 +995,7 @@ async def account_detail_menu(update: Update, context: ContextTypes.DEFAULT_TYPE
         await query.edit_message_text("❌ Akun tidak ditemukan.", reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("« KEMBALI", callback_data="menu_my_accounts")]]), parse_mode="HTML")
         return
 
-    uname, proto, uid_p, exp_s, pwd, ip_l, q_gb, conf_link = row
+    uname, proto, uid_p, exp_s, pwd, ip_l, q_gb, conf_link, auto_rn = row
     
     if proto == "ssh":
         card = format_ssh_account(uname, pwd or uid_p, exp_s, ip_limit=ip_l, quota=q_gb)
@@ -982,9 +1006,13 @@ async def account_detail_menu(update: Update, context: ContextTypes.DEFAULT_TYPE
     elif proto == "wg":
         card = format_wg_account(uname, exp_s, client_conf=conf_link, ip_limit=ip_l, quota=q_gb)
 
+    ar_badge = "🟢 AKTIF" if auto_rn else "⚪ NONAKTIF"
+    ar_toggle_text = "⚙️ AUTO-RENEW: ON" if auto_rn else "⚙️ AUTO-RENEW: OFF"
+
     kb = [
         [InlineKeyboardButton("🔄 REFRESH STATUS / KUOTA", callback_data=f"acc_view_{acc_id}")],
-        [InlineKeyboardButton("🔄 RENEW AKUN INI", callback_data=f"renew_acc_{acc_id}")],
+        [InlineKeyboardButton(f"{ar_toggle_text} ({ar_badge})", callback_data=f"toggle_ar_{acc_id}")],
+        [InlineKeyboardButton("🔄 PERPANJANG MANUAL", callback_data=f"renew_acc_{acc_id}")],
         [InlineKeyboardButton("« KEMBALI KE DAFTAR AKUN", callback_data="menu_my_accounts")]
     ]
     await query.edit_message_text(card, reply_markup=InlineKeyboardMarkup(kb), parse_mode="HTML")
@@ -1703,6 +1731,7 @@ def main():
     app.add_handler(CallbackQueryHandler(trial_menu, pattern="^menu_trial$"))
     app.add_handler(CallbackQueryHandler(execute_trial, pattern="^trial_"))
     app.add_handler(CallbackQueryHandler(my_accounts_menu, pattern="^menu_my_accounts$"))
+    app.add_handler(CallbackQueryHandler(toggle_auto_renew_callback, pattern="^toggle_ar_"))
     app.add_handler(CallbackQueryHandler(account_detail_menu, pattern="^acc_view_"))
     app.add_handler(CallbackQueryHandler(topup_menu, pattern="^menu_topup$"))
     app.add_handler(CallbackQueryHandler(help_menu, pattern="^menu_help$"))

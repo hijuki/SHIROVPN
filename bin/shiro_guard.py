@@ -122,20 +122,26 @@ def remove_from_xray(username):
     except Exception as e:
         print(f"Error removing {username} from Xray: {e}")
 
-# 1. EXPIRED ACCOUNTS CHECKER & PURGE
+# 1. EXPIRED ACCOUNTS CHECKER & AUTO-RENEW / PURGE
 def check_expired_accounts():
     try:
         conn = sqlite3.connect(DB_PATH)
         c = conn.cursor()
-        c.execute("SELECT id, user_id, username, protocol, exp_date FROM accounts")
+        c.execute("SELECT id, user_id, username, protocol, exp_date, days, auto_renew FROM accounts")
         accounts = c.fetchall()
         now = datetime.datetime.now()
 
+        # Get current price per day
+        c.execute("SELECT value FROM settings WHERE key='price_per_day'")
+        p_row = c.fetchone()
+        price_per_day = int(p_row[0]) if p_row else 100
+
         for acc in accounts:
-            acc_id, user_id, username, proto, exp_str = acc
+            acc_id, user_id, username, proto, exp_str, days_val, auto_rn = acc
             try:
                 clean_exp = exp_str.replace(" WIB", "").strip()
                 is_expired = False
+                exp_dt = None
 
                 # Format 1: 30 Minutes / Menit with (HH:MM:SS) or (HH:MM)
                 if "(" in clean_exp and ":" in clean_exp:
@@ -164,7 +170,47 @@ def check_expired_accounts():
                         is_expired = True
 
                 if is_expired:
-                    delete_account_complete(acc_id, user_id, username, proto, reason=f"MASA AKTIF HABIS ({exp_str})")
+                    # Check Auto-Renew
+                    renew_success = False
+                    if auto_rn == 1 and not clean_exp.startswith("30 Menit"):
+                        renew_days = days_val if (days_val and days_val > 0) else 30
+                        total_cost = renew_days * price_per_day
+
+                        c.execute("SELECT balance FROM users WHERE user_id=?", (user_id,))
+                        u_bal_row = c.fetchone()
+                        if u_bal_row and u_bal_row[0] >= total_cost:
+                            # Deduct balance & extend
+                            c.execute("UPDATE users SET balance = balance - ? WHERE user_id=?", (total_cost, user_id))
+                            new_exp_dt = now + datetime.timedelta(days=renew_days)
+                            new_exp_str = new_exp_dt.strftime("%d/%m/%Y %H:%M WIB")
+                            c.execute("UPDATE accounts SET exp_date=? WHERE id=?", (new_exp_str, acc_id))
+                            conn.commit()
+
+                            # If SSH, extend linux chage
+                            if proto == "ssh" and valid_username(username):
+                                chage_exp = new_exp_dt.strftime("%Y-%m-%d")
+                                subprocess.run(["chage", "-E", chage_exp, username], capture_output=True)
+
+                            renew_success = True
+                            print(f"AUTO-RENEW SUCCESS: {username} ({proto}) extended +{renew_days} days")
+
+                            # Send Notification
+                            send_alert_box(
+                                title="PERPANJANGAN OTOMATIS BERHASIL",
+                                badge="🔄",
+                                items={
+                                    "👤 <b>Pengguna</b>": f"ID <code>{user_id}</code>",
+                                    "🔑 <b>Akun</b>    ": f"<code>{username}</code>",
+                                    "🔌 <b>Protokol</b>": f"<b>{proto.upper()}</b>",
+                                    "⏱️ <b>Durasi</b>  ": f"<b>+{renew_days} Hari</b>",
+                                    "📅 <b>Expired</b> ": f"<code>{new_exp_str}</code>",
+                                    "💰 <b>Biaya</b>   ": f"<b>Rp {total_cost:,} (Auto-Deduct)</b>"
+                                },
+                                footer="Fitur Auto-Renew aktif. Saldo Anda otomatis terpotong untuk perpanjangan akun."
+                            )
+
+                    if not renew_success:
+                        delete_account_complete(acc_id, user_id, username, proto, reason=f"MASA AKTIF HABIS ({exp_str})")
             except Exception as e:
                 print(f"Error parsing exp for {username}: {e}")
 
