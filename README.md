@@ -109,6 +109,6 @@ menu
 
 ## 👑 Lisensi & Pengembang
 
-- **Owner / Creator**: [@YourTelegramUsername](https://t.me/Hillz126)
+- **Owner / Creator**: [@YourTelegramUsername](https://t.me/YourTelegramUsername)
 - **Repository**: [hijuki/SHIROVPN](https://github.com/hijuki/SHIROVPN)
 - **Release Edition**: `SHIRO-ZNANDEV-PRO-2026`

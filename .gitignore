@@ -1,0 +1,50 @@
+# Databases (data user, saldo, akun VPN)
+*.db
+*.db-journal
+*.db-wal
+*.sqlite
+*.sqlite3
+
+# Traffic state & snapshots
+*.snap
+*.state
+
+# Logs
+*.log
+logs/
+
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+.venv/
+
+# Env / secrets
+.env
+.env.*
+*.secret
+
+# Keys & certificates
+*.pem
+*.key
+*.priv
+*.crt
+*.csr
+*.p12
+*.pfx
+id_rsa
+id_rsa.*
+id_ed25519
+id_ed25519.*
+
+# Temporary / editor files
+*.tmp
+*.bak
+*.swp
+*.swo
+*~
+
+# OS metadata
+.DS_Store
+Thumbs.db

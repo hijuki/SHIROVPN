@@ -143,7 +143,7 @@ def init_db():
         "price_per_day": "100",
         "default_ip_limit": "2",
         "default_quota": "100 GB",
-        "notif_chat_id": "-1004339591538",
+        "notif_chat_id": "-1000000000000",
         "notif_thread_id": "3"
     }
     for k, v in defaults.items():
@@ -1186,7 +1186,7 @@ Kirim link topik forum Telegram:
 <i>Contoh: <code>https://t.me/c/4339591538/3</code></i>
 
 Atau kirim Chat ID langsung:
-<i>Contoh: <code>-1004339591538</code></i>"""
+<i>Contoh: <code>-1000000000000</code></i>"""
     kb = [[InlineKeyboardButton("❌ BATAL", callback_data="admin_wizard")]]
     await query.edit_message_text(msg, reply_markup=InlineKeyboardMarkup(kb), parse_mode="HTML")
 

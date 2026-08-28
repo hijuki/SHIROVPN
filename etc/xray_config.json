@@ -207,7 +207,7 @@
         "inboundTag": [
           "api-inbound"
         ],
-        "outboundTag": "direct"
+        "outboundTag": "api"
       }
     ]
   }

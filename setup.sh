@@ -85,13 +85,36 @@ cp "${SCRIPT_DIR}/etc/dropbear.default" /etc/default/dropbear
 # Deploy systemd unit files
 cp "${SCRIPT_DIR}/systemd/"*.service /etc/systemd/system/
 
-echo -e "${CYAN}[5/7] Menyesuaikan Konfigurasi Token & Domain di Bot...${NC}"
-sed -i "s/BOT_TOKEN = \".*\"/BOT_TOKEN = \"${BOT_TOKEN_INPUT}\"/g" /usr/local/bin/shirobot.py
-sed -i "s/TOKEN = \".*\"/TOKEN = \"${BOT_TOKEN_INPUT}\"/g" /usr/local/bin/send_notif.py
-sed -i "s/ADMIN_ID = .*/ADMIN_ID = ${ADMIN_ID_INPUT}/g" /usr/local/bin/shirobot.py
-sed -i "s/ADMIN_USER = \".*\"/ADMIN_USER = \"${ADMIN_USER_INPUT}\"/g" /usr/local/bin/shirobot.py
-sed -i "s/DOMAIN = \".*\"/DOMAIN = \"${DOMAIN_INPUT}\"/g" /usr/local/bin/shirobot.py
-sed -i "s/DOMAIN=\".*\"/DOMAIN=\"${DOMAIN_INPUT}\"/g" /usr/bin/menu
+# Deploy Xray config template only on a fresh install (never clobber a live config)
+mkdir -p /usr/local/etc/xray /var/log/xray /var/lib/shiro_traffic
+if [ -f "${SCRIPT_DIR}/etc/xray_config.json" ] && [ ! -f /usr/local/etc/xray/config.json ]; then
+    cp "${SCRIPT_DIR}/etc/xray_config.json" /usr/local/etc/xray/config.json
+fi
+
+echo -e "${CYAN}[5/7] Menyimpan Konfigurasi ke SQLite Database Master...${NC}"
+mkdir -p /var/lib
+BOT_TOKEN_INPUT="$BOT_TOKEN_INPUT" ADMIN_ID_INPUT="$ADMIN_ID_INPUT" \
+ADMIN_USER_INPUT="$ADMIN_USER_INPUT" DOMAIN_INPUT="$DOMAIN_INPUT" \
+python3 - <<'PYEOF'
+import os, sqlite3
+conn = sqlite3.connect('/var/lib/shirobot.db')
+c = conn.cursor()
+c.execute("CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT)")
+defaults = {
+    'bot_token': os.environ['BOT_TOKEN_INPUT'],
+    'admin_id': os.environ['ADMIN_ID_INPUT'],
+    'admin_user': os.environ['ADMIN_USER_INPUT'],
+    'domain': os.environ['DOMAIN_INPUT'],
+    'price_per_day': '100',
+    'default_ip_limit': '2',
+    'default_quota': '100 GB',
+}
+for k, v in defaults.items():
+    c.execute("INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)", (k, v))
+conn.commit()
+conn.close()
+print("Settings tersimpan di /var/lib/shirobot.db")
+PYEOF
 
 # SSH config banner check
 if ! grep -q "Banner /etc/issue.net" /etc/ssh/sshd_config; then
@@ -101,11 +124,11 @@ fi
 echo -e "${CYAN}[6/7] Mengaktifkan dan Merestart Seluruh Daemon Service...${NC}"
 systemctl daemon-reload
 systemctl unmask dropbear 2>/dev/null || true
-systemctl enable dropbear ws-dropbear shirobot shiro-guard
-systemctl restart ssh dropbear ws-dropbear shirobot shiro-guard
+systemctl enable dropbear ws-dropbear shirobot shiro-guard shiro-traffic
+systemctl restart ssh dropbear ws-dropbear shirobot shiro-guard shiro-traffic
 
-echo -e "${CYAN}[7/7] Inisialisasi Database Master...${NC}"
-python3 -c "import sqlite3; conn=sqlite3.connect('/var/lib/shirobot.db'); conn.close()"
+echo -e "${CYAN}[7/7] Verifikasi Port Layanan...${NC}"
+ss -tulpn 2>/dev/null | grep -E ':(22|80|109|110|443|1445) ' || true
 
 echo ""
 echo -e "${GREEN}┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓${NC}"

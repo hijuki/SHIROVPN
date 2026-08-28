@@ -43,7 +43,7 @@ if [ -z "$SHIRO_INTRO_DONE" ]; then
     export SHIRO_INTRO_DONE=1
 fi
 
-DOMAIN="sg1-shiro.my.id"
+DOMAIN="your-domain.com"
 # Auto Detect ISP & Geo Location
 if [ -z "$SHIRO_GEO_CACHED" ]; then
     GEO_JSON=$(curl -s --max-time 3 https://ipinfo.io/json 2>/dev/null)
@@ -169,7 +169,7 @@ echo -e " [x]  ${WHITE}EXIT MENU${NC}"
 echo -e "${RED}└─────────────────────────────────────────────────────────────┘${NC}"
 
 echo -e "${RED}┌────────────────────── LICENSE ──────────────────────────────┐${NC}"
-echo -e " ${WHITE}Owner${NC}   : @Hillz126"
+echo -e " ${WHITE}Owner${NC}   : @YourTelegramUsername"
 echo -e " ${WHITE}Edition${NC} : SHIRO-ZNANDEV-PRO-2026"
 echo -e "${RED}└─────────────────────────────────────────────────────────────┘${NC}"
 echo ""
@@ -441,7 +441,7 @@ conn.close()
 ├ 🌐 <b>ᴅᴏᴍᴀɪɴ</b>   : <code>$DOMAIN</code>
 ├ ⚡ <b>ꜱᴛᴀᴛᴜꜱ</b>   : <code>ALL ENGINES ONLINE</code>
 ├ 🕒 <b>ᴡᴀᴋᴛᴜ</b>    : <code>$TIME_NOW</code>
-└ 👑 <b>ᴏᴡɴᴇʀ</b>    : @Hillz126
+└ 👑 <b>ᴏᴡɴᴇʀ</b>    : @YourTelegramUsername
 
 ━━━━━━━━━━━━━━━━━━━━━━
 🤝 <i>Uji coba siaran telemetri topik forum berhasil terhubung!</i>"
