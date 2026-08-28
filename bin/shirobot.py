@@ -1613,15 +1613,64 @@ Ketik <b>Password SSH Custom</b> yang diinginkan (Contoh: <code>pass123</code>):
         ssh_pass = raw.strip()
         if not ssh_pass:
             ssh_pass = str(uuid.uuid4())[:8]
+        context.user_data["vip_pass"] = ssh_pass
+        context.user_data["admin_typing_mode"] = "create_all_days"
+        msg = f"""┌〔 📅 <b>MASA AKTIF AKUN VIP</b> 〕
+├ 👤 <b>Username</b> : <code>{clean_user}</code>
+├ 🔑 <b>Password</b> : <code>{ssh_pass}</code>
+└────────────────────────
+
+Ketik <b>Jumlah Hari</b> aktif (Contoh: <code>30</code> atau <code>60</code>):"""
+        kb = [[InlineKeyboardButton("« BATAL", callback_data="menu_admin")]]
+        await update.message.reply_text(msg, reply_markup=InlineKeyboardMarkup(kb), parse_mode="HTML")
+        return
+    elif mode == "create_all_days":
+        try:
+            days = int(re.search(r'\d+', raw).group(0))
+        except Exception:
+            days = 30
+        context.user_data["vip_days"] = days
+        context.user_data["admin_typing_mode"] = "create_all_limit"
+        msg = f"""┌〔 👥 <b>BATAS MULTI-IP AKUN VIP</b> 〕
+├ 📅 <b>Durasi</b> : {days} Hari
+└────────────────────────
+
+Ketik batas <b>Jumlah Device / IP</b> (Contoh: <code>2</code> atau <code>5</code>):"""
+        kb = [[InlineKeyboardButton("« BATAL", callback_data="menu_admin")]]
+        await update.message.reply_text(msg, reply_markup=InlineKeyboardMarkup(kb), parse_mode="HTML")
+        return
+    elif mode == "create_all_limit":
+        try:
+            limit = int(re.search(r'\d+', raw).group(0))
+        except Exception:
+            limit = 2
+        context.user_data["vip_limit"] = limit
+        context.user_data["admin_typing_mode"] = "create_all_quota"
+        msg = f"""┌〔 📦 <b>KUOTA DATA AKUN VIP</b> 〕
+├ 👥 <b>Limit IP</b> : {limit} Device
+└────────────────────────
+
+Ketik <b>Kuota Data</b> (Contoh: <code>100 GB</code>, <code>50 GB</code>, atau <code>Unlimited</code>):"""
+        kb = [[InlineKeyboardButton("« BATAL", callback_data="menu_admin")]]
+        await update.message.reply_text(msg, reply_markup=InlineKeyboardMarkup(kb), parse_mode="HTML")
+        return
+    elif mode == "create_all_quota":
+        clean_user = context.user_data.get("vip_user", "vipuser")
+        ssh_pass = context.user_data.get("vip_pass", "pass123")
+        days = context.user_data.get("vip_days", 30)
+        ip_limit = context.user_data.get("vip_limit", 2)
+        
+        if "unlim" in raw.lower():
+            quota = "Unlimited"
+        else:
+            m_q = re.search(r'\d+', raw)
+            quota = f"{m_q.group(0)} GB" if m_q else "100 GB"
         
         # UUID key for Xray
         xray_uuid = str(uuid.uuid4())
-        days = 30
         now = datetime.datetime.now()
         exp_dt = now + datetime.timedelta(days=days)
         exp_str = exp_dt.strftime("%d/%m/%Y %H:%M WIB")
-        quota = get_setting("default_quota", "100 GB")
-        ip_limit = int(get_setting("default_ip_limit", "2"))
         u_id = update.effective_user.id
 
         # 1. Linux SSH with custom password
