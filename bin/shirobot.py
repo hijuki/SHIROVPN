@@ -1482,7 +1482,7 @@ async def renew_input_days(update: Update, context: ContextTypes.DEFAULT_TYPE):
     price_per_day = int(get_setting("price_per_day", "100"))
     total_cost = days * price_per_day
 
-    user_data = get_user(u.id, u.username, u.first_name)
+    user_data = get_user(u.id, u.username)
     balance = user_data["balance"]
 
     if balance < total_cost:
