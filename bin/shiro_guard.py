@@ -3,9 +3,9 @@
 Shiro Real-time Guard Daemon:
   1. Auto-Purge Expired Accounts (Trial 30 mins & Regular dates).
   2. Multi-IP Limiter for ALL Protocols (SSH, Dropbear, VLESS, VMess, Trojan):
-     - Calculates UNIQUE client IP addresses (1 device with multiple sockets = 1 IP).
+     - Correctly identifies ONLY true incoming client IP addresses.
      - 2-Strike Enforcement:
-         * Strike 1: Warning notification + disconnect excess sessions.
+         * Strike 1: Warning notification to Telegram.
          * Strike 2: Auto-delete / permanent suspend + deletion notification.
   3. Auto-Purge Exceeded Bandwidth Quota.
 """
@@ -14,6 +14,7 @@ import re
 import sys
 import time
 import json
+import pwd
 import sqlite3
 import datetime
 import subprocess
@@ -76,7 +77,6 @@ def delete_account_complete(acc_id, user_id, username, proto, reason="MULTI-IP V
         conn.commit()
         conn.close()
 
-        # Remove from active violations memory
         VIOLATIONS.pop(username, None)
 
         send_alert_box(
@@ -89,7 +89,7 @@ def delete_account_complete(acc_id, user_id, username, proto, reason="MULTI-IP V
                 "⚠️ <b>Pelanggaran</b>": f"<code>{reason}</code>",
                 "🛡️ <b>Tindakan</b>   ": "<code>Akun Dihapus & Dibanned</code>"
             },
-            footer="Akun dihapus permanen oleh sistem karena telah melanggar batas penggunaan 2 kali."
+            footer="Akun dihapus permanen oleh sistem karena telah melanggar batas multi-login 2 kali."
         )
     except Exception as e:
         print(f"Error purging account {username}: {e}")
@@ -176,14 +176,14 @@ def check_expired_accounts():
 def process_multi_ip_violation(acc_id, user_id, username, proto, limit, detected_ips):
     """
     Handles Multi-IP violation with 2-Strike system:
-    - Strike 1: Warning notification + kill excess connections.
+    - Strike 1: Warning notification to Telegram.
     - Strike 2: Delete account permanently.
     """
     now = time.time()
     v_data = VIOLATIONS.get(username, {"strikes": 0, "last_time": 0})
     
-    # Cooldown 60s to prevent spamming notifications on the exact same violation tick
-    if (now - v_data.get("last_time", 0)) < 60:
+    # Cooldown 120s to prevent spamming notifications on the same incident
+    if (now - v_data.get("last_time", 0)) < 120:
         return
 
     v_data["strikes"] += 1
@@ -203,7 +203,7 @@ def process_multi_ip_violation(acc_id, user_id, username, proto, limit, detected
                 "🔌 <b>Protokol</b>  ": f"<b>{proto.upper()}</b>",
                 "🌐 <b>Batas Limit</b>": f"<b>{limit} Device/IP</b>",
                 "🚨 <b>Terdeteksi</b> ": f"<b>{len(detected_ips)} IP Berbeda</b>",
-                "📡 <b>Daftar IP</b>  ": f"<code>{', '.join(list(detected_ips)[:4])}</code>",
+                "📡 <b>Daftar IP</b>  ": f"<code>{', '.join(list(detected_ips)[:3])}</code>",
                 "⚡ <b>Status</b>     ": "<code>PERINGATAN PERTAMA</code>"
             },
             footer="Jika terdeteksi multi-login sekali lagi (Peringatan 2/2), akun akan otomatis DIHAPUS permanen."
@@ -212,7 +212,7 @@ def process_multi_ip_violation(acc_id, user_id, username, proto, limit, detected
         # Strike 2: Auto-Delete
         delete_account_complete(acc_id, user_id, username, proto, reason=f"MULTI-IP VIOLATION (2/2 - {len(detected_ips)} IPs)")
 
-# 3. SSH MULTI-IP CHECKER (Counts UNIQUE IP Addresses, not connection sockets)
+# 3. SSH MULTI-IP CHECKER (Inspects pure INCOMING client connections only)
 def enforce_ssh_ip_limit():
     try:
         conn = sqlite3.connect(DB_PATH)
@@ -224,10 +224,30 @@ def enforce_ssh_ip_limit():
         if not ssh_accounts:
             return
 
-        # Use 'who' or 'w' to extract real remote IP addresses per user session
-        # Format of `who`: username  pts/X  2026-08-28 15:40 (180.240.10.15)
-        out_who = subprocess.run(["who"], capture_output=True, text=True).stdout
         user_ips = {}
+
+        # Source 1: Check environment variables of user session processes for SSH_CONNECTION
+        for pid in os.listdir("/proc"):
+            if pid.isdigit():
+                try:
+                    p_stat = os.stat(f"/proc/{pid}")
+                    uname = pwd.getpwuid(p_stat.st_uid).pw_name
+                    if uname in ssh_accounts:
+                        with open(f"/proc/{pid}/environ", "rb") as f:
+                            env = f.read().decode("utf-8", errors="ignore")
+                            if "SSH_CONNECTION=" in env:
+                                for line in env.split("\0"):
+                                    if line.startswith("SSH_CONNECTION="):
+                                        parts = line.split("=")[1].split()
+                                        if parts:
+                                            clip = parts[0]
+                                            if clip not in ["127.0.0.1", "::1", "localhost", "95.111.196.242"]:
+                                                user_ips.setdefault(uname, set()).add(clip)
+                except Exception:
+                    pass
+
+        # Source 2: Check `who` command for active SSH login terminals
+        out_who = subprocess.run(["who"], capture_output=True, text=True).stdout
         for line in out_who.splitlines():
             parts = line.strip().split()
             if len(parts) >= 5:
@@ -235,29 +255,7 @@ def enforce_ssh_ip_limit():
                 ip_match = re.search(r'\(([^)]+)\)', line)
                 if uname in ssh_accounts and ip_match:
                     rip = ip_match.group(1).replace("::ffff:", "")
-                    if rip and rip not in ["localhost", "127.0.0.1", "::1"]:
-                        user_ips.setdefault(uname, set()).add(rip)
-
-        # Also inspect OpenSSH / Dropbear active socket IPs via ss
-        # Format: ESTAB ... 95.111.196.242:22 180.240.10.15:43828 users:(("sshd-session",pid=20746...
-        out_ss = subprocess.run(["ss", "-tnp"], capture_output=True, text=True).stdout
-        # Map pid to username
-        pid_user = {}
-        out_ps = subprocess.run(["ps", "-eo", "pid,user,args"], capture_output=True, text=True).stdout
-        for pline in out_ps.splitlines():
-            pp = pline.strip().split()
-            if len(pp) >= 2 and pp[1] in ssh_accounts:
-                pid_user[pp[0]] = pp[1]
-
-        for sline in out_ss.splitlines():
-            if "sshd-session" in sline or "dropbear" in sline:
-                m_pid = re.search(r'pid=(\d+)', sline)
-                m_ip = re.search(r'(\d+\.\d+\.\d+\.\d+):\d+\s+users:', sline)
-                if m_pid and m_ip:
-                    pid_val = m_pid.group(1)
-                    rip = m_ip.group(1)
-                    uname = pid_user.get(pid_val)
-                    if uname and rip not in ["127.0.0.1", "95.111.196.242"]:
+                    if rip and rip not in ["localhost", "127.0.0.1", "::1", "95.111.196.242"]:
                         user_ips.setdefault(uname, set()).add(rip)
 
         for uname, ips in user_ips.items():
@@ -269,7 +267,7 @@ def enforce_ssh_ip_limit():
     except Exception as e:
         print(f"SSH IP limit check error: {e}")
 
-# 4. XRAY (VLESS / VMESS / TROJAN) MULTI-IP CHECKER (Counts UNIQUE IP Addresses in active window)
+# 4. XRAY (VLESS / VMESS / TROJAN) MULTI-IP CHECKER
 def enforce_xray_ip_limit():
     try:
         if not os.path.exists(ACCESS_LOG):
@@ -284,8 +282,8 @@ def enforce_xray_ip_limit():
         if not xray_accounts:
             return
 
-        # Read last 150 lines of access log
-        out = subprocess.run(["tail", "-n", "150", ACCESS_LOG], capture_output=True, text=True).stdout
+        # Read last 100 lines of access log
+        out = subprocess.run(["tail", "-n", "100", ACCESS_LOG], capture_output=True, text=True).stdout
         user_ips = {}
         for line in out.strip().splitlines():
             m = re.search(r"from (?:tcp:)?([0-9.]+):\d+.*email:\s*([a-zA-Z0-9_-]+)", line)
