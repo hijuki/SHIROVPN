@@ -1,0 +1,5 @@
+# Dropbear configuration
+NO_START=0
+DROPBEAR_PORT=110
+DROPBEAR_EXTRA_ARGS="-p 109"
+DROPBEAR_BANNER="/etc/dropbear_banner"

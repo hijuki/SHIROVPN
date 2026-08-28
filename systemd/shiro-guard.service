@@ -1,0 +1,13 @@
+[Unit]
+Description=Shiro Guard Expiry & Security Watcher
+After=network.target
+
+[Service]
+Type=simple
+User=root
+ExecStart=/usr/bin/python3 /usr/local/bin/shiro_guard.py
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

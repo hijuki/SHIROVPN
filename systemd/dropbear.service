@@ -1,0 +1,14 @@
+[Unit]
+Description=Dropbear SSH Server
+After=network.target
+
+[Service]
+Type=forking
+ExecStart=/usr/sbin/dropbear -p 109 -p 110 -b /etc/dropbear_banner
+ExecReload=/bin/kill -HUP $MAINPID
+PIDFile=/run/dropbear.pid
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target

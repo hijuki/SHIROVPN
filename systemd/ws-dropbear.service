@@ -1,0 +1,12 @@
+[Unit]
+Description=SSH WebSocket Proxy for Xray Fallback
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/python3 /usr/local/bin/ws-dropbear.py
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target

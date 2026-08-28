@@ -1,0 +1,595 @@
+#!/bin/bash
+export DEBIAN_FRONTEND=noninteractive
+
+# ANSI Aesthetics
+CYAN='\033[0;36m'
+GREEN='\033[0;32m'
+RED='\033[0;31m'
+YELLOW='\033[1;33m'
+PURPLE='\033[0;35m'
+BLUE='\033[0;34m'
+WHITE='\033[1;37m'
+GRAY='\033[0;90m'
+BOLD='\033[1m'
+NC='\033[0m'
+
+# ================= AESTHETIC CYBER PULSE INTRO =================
+
+if [ -z "$SHIRO_INTRO_DONE" ]; then
+    clear
+    echo -e "${CYAN}╭─────────────────────────────────────────────────────────────╮${NC}"
+    echo -e "${CYAN}│${WHITE}           ⚡ SHIRO TUNNELING MASTER PROTOCOL v3.5           ${CYAN}│${NC}"
+    echo -e "${CYAN}╰─────────────────────────────────────────────────────────────╯${NC}"
+    echo ""
+    
+    stages=(
+        "Synchronizing Kernel NetFilter & eBPF Engine"
+        "Verifying 9 Multi-Protocol Daemons (Xray, SSH, WG, ZiVPN)"
+        "Syncing Live SQLite Database & vnstat Traffic Telemetry"
+    )
+    
+    for item in "${stages[@]}"; do
+        echo -ne " ${GRAY}⟡${NC} ${WHITE}${item}${NC} "
+        for p in "◜" "◠" "◝" "◞" "◡" "◟"; do
+            echo -ne "\b${CYAN}${p}${NC}"
+            sleep 0.04
+        done
+        echo -e "\b${GREEN}● ONLINE${NC}"
+    done
+    
+    echo ""
+    echo -e " ${GREEN}✔ All Core Subsystems Armed & Ready.${NC}"
+    sleep 0.3
+    export SHIRO_INTRO_DONE=1
+fi
+
+DOMAIN="sg1-shiro.my.id"
+# Auto Detect ISP & Geo Location
+if [ -z "$SHIRO_GEO_CACHED" ]; then
+    GEO_JSON=$(curl -s --max-time 3 https://ipinfo.io/json 2>/dev/null)
+    if [ -n "$GEO_JSON" ]; then
+        DETECTED_ISP=$(echo "$GEO_JSON" | grep '"org":' | head -1 | cut -d'"' -f4 | sed 's/^AS[0-9]* //')
+        DETECTED_CITY=$(echo "$GEO_JSON" | grep '"city":' | head -1 | cut -d'"' -f4)
+        DETECTED_COUNTRY=$(echo "$GEO_JSON" | grep '"country":' | head -1 | cut -d'"' -f4)
+        [ -n "$DETECTED_ISP" ] && export SHIRO_CACHED_ISP="$DETECTED_ISP"
+        [ -n "$DETECTED_CITY" ] && export SHIRO_CACHED_GEO="$DETECTED_CITY ($DETECTED_COUNTRY)"
+    fi
+    export SHIRO_GEO_CACHED=1
+fi
+ISP="${SHIRO_CACHED_ISP:-UpCloud Ltd} (${SHIRO_CACHED_GEO:-Singapore 🇸🇬})"
+UPTIME=$(uptime -p | sed 's/up //')
+TIME=$(TZ='Asia/Jakarta' date "+%d-%m-%Y %H:%M:%S WIB")
+OS=$(grep PRETTY_NAME /etc/os-release 2>/dev/null | cut -d= -f2 | tr -d '"')
+[[ -z "$OS" ]] && OS="Ubuntu 22.04 LTS"
+
+CPU_CORES=$(nproc)
+CPU_PCT=$(top -bn1 | grep "Cpu(s)" | awk '{printf "%.1f", $2+$4}')
+CPU="${CPU_PCT}% (${CPU_CORES} Core)"
+RAM=$(free -m | awk 'NR==2{printf "%sMB / %sMB (%d%%)", $3, $2, $3*100/$2}')
+DISK_USED=$(df -h / | awk 'NR==2{print $3}')
+DISK="${DISK_USED} / ∞"
+
+IFACE=$(ip route get 1.1.1.1 2>/dev/null | awk '{print $5; exit}')
+MONTH_NAME=$(date +"%Y-%m")
+
+TODAY=$(vnstat -i "$IFACE" 2>/dev/null | awk '/today/ {print $8" "$9}')
+YESTERDAY=$(vnstat -i "$IFACE" 2>/dev/null | awk '/yesterday/ {print $8" "$9}')
+MONTH=$(vnstat -i "$IFACE" 2>/dev/null | awk -v m="$MONTH_NAME" '$1 ~ m {print $8" "$9}')
+TOTAL_BW=$(vnstat --oneline 2>/dev/null | cut -d';' -f15)
+
+[[ -z "$TODAY" ]] && TODAY="0 B"
+[[ -z "$YESTERDAY" ]] && YESTERDAY="0 B"
+[[ -z "$MONTH" ]] && MONTH="0 B"
+[[ -z "$TOTAL_BW" ]] && TOTAL_BW="Active"
+
+chk_status() {
+    if systemctl is-active --quiet "$1"; then
+        echo -e "${GREEN}🟢 ONLINE${NC}"
+    else
+        echo -e "${RED}🔴 OFFLINE${NC}"
+    fi
+}
+
+S_XRAY=$(chk_status xray)
+S_SSH=$(chk_status ssh)
+S_DROP=$(chk_status dropbear)
+S_ZIVPN=$(chk_status zivpn)
+S_WG=$(chk_status wg-quick@wg0)
+S_BOT=$(chk_status shirobot)
+S_GUARD=$(chk_status shiro-guard)
+S_WS=$(chk_status ws-dropbear)
+
+counts=$(python3 -c "
+import sqlite3
+try:
+    conn = sqlite3.connect('/var/lib/shirobot.db')
+    c = conn.cursor()
+    c.execute('SELECT protocol, COUNT(*) FROM accounts GROUP BY protocol')
+    data = dict(c.fetchall())
+    print(f'{data.get(\"ssh\", 0)}|{data.get(\"vless\", 0)}|{data.get(\"vmess\", 0)}|{data.get(\"trojan\", 0)}|{data.get(\"zivpn\", 0)}|{data.get(\"wg\", 0)}')
+    conn.close()
+except:
+    print('0|0|0|0|0|0')
+")
+
+IFS='|' read -r C_SSH C_VLESS C_VMESS C_TROJAN C_ZIVPN C_WG <<< "$counts"
+TOTAL_ACCOUNTS=$((C_SSH + C_VLESS + C_VMESS + C_TROJAN + C_ZIVPN + C_WG))
+
+# ================= RENDER DASHBOARD =================
+
+clear
+echo -e "${CYAN}┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓${NC}"
+echo -e "${CYAN}┃${WHITE}             ⚡ SHIRO TUNNELING MASTER PANEL ⚡              ${CYAN}┃${NC}"
+echo -e "${CYAN}┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛${NC}"
+
+# SYSTEM INFO
+echo -e "${YELLOW}┌────────────────────── SYSTEM INFO ──────────────────────────┐${NC}"
+printf " ${WHITE}%-13s${NC}: %-43s\n" "DOMAIN" "$DOMAIN"
+printf " ${WHITE}%-13s${NC}: %-43s\n" "ISP" "$ISP"
+printf " ${WHITE}%-13s${NC}: %-43s\n" "OS" "$OS"
+printf " ${WHITE}%-13s${NC}: %-43s\n" "UPTIME" "$UPTIME"
+printf " ${WHITE}%-13s${NC}: %-43s\n" "CPU USAGE" "$CPU"
+printf " ${WHITE}%-13s${NC}: %-43s\n" "RAM USAGE" "$RAM"
+printf " ${WHITE}%-13s${NC}: %-43s\n" "DISK USAGE" "$DISK"
+printf " ${WHITE}%-13s${NC}: %-43s\n" "SERVER TIME" "$TIME"
+echo -e "${YELLOW}└─────────────────────────────────────────────────────────────┘${NC}"
+
+# BANDWIDTH
+echo -e "${CYAN}┌────────────────────── BANDWIDTH ────────────────────────────┐${NC}"
+printf " ${WHITE}%-11s${NC}: %-15s ${WHITE}%-11s${NC}: %-15s\n" "TODAY" "$TODAY" "YESTERDAY" "$YESTERDAY"
+printf " ${WHITE}%-11s${NC}: %-15s ${WHITE}%-11s${NC}: %-15s\n" "MONTH" "$MONTH" "TOTAL" "$TOTAL_BW"
+echo -e "${CYAN}└─────────────────────────────────────────────────────────────┘${NC}"
+
+# USER STATS
+echo -e "${PURPLE}┌────────────────────── USER STATS ───────────────────────────┐${NC}"
+printf " ${WHITE}%-8s${NC}: %-8s ${WHITE}%-8s${NC}: %-8s ${WHITE}%-8s${NC}: %-8s\n" "SSH" "$C_SSH" "VLESS" "$C_VLESS" "VMESS" "$C_VMESS"
+printf " ${WHITE}%-8s${NC}: %-8s ${WHITE}%-8s${NC}: %-8s ${WHITE}%-8s${NC}: %-8s\n" "TROJAN" "$C_TROJAN" "ZIVPN" "$C_ZIVPN" "WG" "$C_WG"
+printf " ${WHITE}%-8s${NC}: %-8s ${WHITE}%-12s${NC}: %-20s\n" "TOTAL" "$TOTAL_ACCOUNTS" "DATABASE" "SQLite Synchronized"
+echo -e "${PURPLE}└─────────────────────────────────────────────────────────────┘${NC}"
+
+# SERVICE ENGINE
+echo -e "${BLUE}┌────────────────────── ENGINE STATUS ────────────────────────┐${NC}"
+printf " ${WHITE}%-12s${NC}: %-22b ${WHITE}%-12s${NC}: %-22b\n" "XRAY TLS" "$S_XRAY" "OPENSSH (80)" "$S_SSH"
+printf " ${WHITE}%-12s${NC}: %-22b ${WHITE}%-12s${NC}: %-22b\n" "DROPBEAR" "$S_DROP" "WS-DROPBEAR" "$S_WS"
+printf " ${WHITE}%-12s${NC}: %-22b ${WHITE}%-12s${NC}: %-22b\n" "UDP ZIVPN" "$S_ZIVPN" "WIREGUARD" "$S_WG"
+printf " ${WHITE}%-12s${NC}: %-22b ${WHITE}%-12s${NC}: %-22b\n" "BOT TELEGRAM" "$S_BOT" "AUTO GUARD" "$S_GUARD"
+echo -e "${BLUE}└─────────────────────────────────────────────────────────────┘${NC}"
+
+# MAIN MENU
+echo -e "${RED}┌────────────────────── MAIN MENU ────────────────────────────┐${NC}"
+echo -e " [1]  ${WHITE}SSH & WS SSL${NC}          [9]  ${WHITE}BOT MANAGER${NC}"
+echo -e " [2]  ${WHITE}VLESS TLS / gRPC${NC}      [10] ${WHITE}CONNECT TOPIC FORUM${NC}"
+echo -e " [3]  ${WHITE}VMESS TLS${NC}             [11] ${WHITE}CHANGE BOT TOKEN${NC}"
+echo -e " [4]  ${WHITE}TROJAN TLS / gRPC${NC}     [12] ${WHITE}TEST NOTIF FORUM${NC}"
+echo -e " [5]  ${WHITE}UDP ZIVPN GAMING${NC}      [13] ${WHITE}BACKUP & RESTORE${NC}"
+echo -e " [6]  ${WHITE}WIREGUARD VPN${NC}         [14] ${WHITE}SPEEDTEST NETWORK${NC}"
+echo -e " [7]  ${WHITE}REVOKE USER${NC}           [15] ${WHITE}RESTART ALL SERVICES${NC}"
+echo -e " [8]  ${WHITE}LIST ALL ACCOUNTS${NC}     [16] ${WHITE}RENEW USER ACCOUNT${NC}"
+echo -e " [x]  ${WHITE}EXIT MENU${NC}"
+echo -e "${RED}└─────────────────────────────────────────────────────────────┘${NC}"
+
+echo -e "${RED}┌────────────────────── LICENSE ──────────────────────────────┐${NC}"
+echo -e " ${WHITE}Owner${NC}   : @Hillz126"
+echo -e " ${WHITE}Edition${NC} : SHIRO-ZNANDEV-PRO-2026"
+echo -e "${RED}└─────────────────────────────────────────────────────────────┘${NC}"
+echo ""
+
+read -rp "Select Menu [1-15 / x]: " opt
+
+case $opt in
+    1)
+        python3 /usr/local/bin/cli_creator.py ssh
+        read -p "Press Enter to return..."
+        /usr/bin/menu
+        ;;
+    2)
+        python3 /usr/local/bin/cli_creator.py vless
+        read -p "Press Enter to return..."
+        /usr/bin/menu
+        ;;
+    3)
+        python3 /usr/local/bin/cli_creator.py vmess
+        read -p "Press Enter to return..."
+        /usr/bin/menu
+        ;;
+    4)
+        python3 /usr/local/bin/cli_creator.py trojan
+        read -p "Press Enter to return..."
+        /usr/bin/menu
+        ;;
+    5)
+        python3 /usr/local/bin/cli_creator.py zivpn
+        read -p "Press Enter to return..."
+        /usr/bin/menu
+        ;;
+    6)
+        python3 /usr/local/bin/cli_creator.py wg
+        read -p "Press Enter to return..."
+        /usr/bin/menu
+        ;;
+    7)
+        clear
+        echo -e "${YELLOW}┌── [ REVOKE / DELETE ACCOUNT ] ─────────────────────────────────────────────────────────────────────────┐${NC}"
+        printf " │ ${WHITE}%-4s %-13s %-8s %-17s %-6s %-20s %-8s${NC}│\n" "NO" "USERNAME" "PROTO" "EXPIRED DATE" "IP" "USAGE / QUOTA" "STATUS"
+        echo -e "${YELLOW}├────────────────────────────────────────────────────────────────────────────────────────────────────────┤${NC}"
+        python3 -c "
+import sqlite3
+import sys
+sys.path.append('/usr/local/bin')
+from quota_tracker import get_account_quota_info
+
+conn = sqlite3.connect('/var/lib/shirobot.db')
+c = conn.cursor()
+c.execute('SELECT username, protocol, exp_date, ip_limit, quota_gb FROM accounts ORDER BY id DESC')
+rows = c.fetchall()
+if not rows:
+    print(' │  No accounts registered.')
+else:
+    for idx, r in enumerate(rows, 1):
+        u, p, e, l, q = r[0], r[1].upper(), str(r[2])[:16], f'{r[3]} IP', str(r[4])
+        tot, used, ratio, pct = get_account_quota_info(u)
+        status = '\033[0;32mACTIVE\033[0m'
+        print(f' │  {idx:<3} {u:<13} {p:<8} {e:<17} {l:<6} {ratio:<20} {status:<8}│')
+conn.close()
+"
+        echo -e "${YELLOW}└────────────────────────────────────────────────────────────────────────────────────────────────────────┘${NC}"
+        echo ""
+        read -p " Enter Username to delete (Leave empty to cancel): " del_user
+        if [ -n "$del_user" ]; then
+            userdel -f "$del_user" 2>/dev/null
+            python3 -c "
+import sqlite3
+conn = sqlite3.connect('/var/lib/shirobot.db')
+c = conn.cursor()
+c.execute('DELETE FROM accounts WHERE username=?', ('$del_user',))
+conn.commit()
+conn.close()
+"
+            echo -e "\n${GREEN}✓ User $del_user successfully deleted.${NC}"
+        fi
+        read -p " Press Enter to return..."
+        /usr/bin/menu
+        ;;
+    8)
+        clear
+        echo -e "${YELLOW}┌── [ ALL REGISTERED ACCOUNTS & QUOTA USAGE ] ───────────────────────────────────────────────────────────┐${NC}"
+        printf " │ ${WHITE}%-4s %-13s %-8s %-17s %-6s %-20s %-8s${NC}│\n" "NO" "USERNAME" "PROTO" "EXPIRED DATE" "IP" "USAGE / QUOTA" "STATUS"
+        echo -e "${YELLOW}├────────────────────────────────────────────────────────────────────────────────────────────────────────┤${NC}"
+        python3 -c "
+import sqlite3
+import sys
+sys.path.append('/usr/local/bin')
+from quota_tracker import get_account_quota_info
+
+conn = sqlite3.connect('/var/lib/shirobot.db')
+c = conn.cursor()
+c.execute('SELECT username, protocol, exp_date, ip_limit, quota_gb FROM accounts ORDER BY id DESC')
+rows = c.fetchall()
+if not rows:
+    print(' │  No accounts registered.')
+else:
+    for idx, r in enumerate(rows, 1):
+        u, p, e, l, q = r[0], r[1].upper(), str(r[2])[:16], f'{r[3]} IP', str(r[4])
+        tot, used, ratio, pct = get_account_quota_info(u)
+        status = '\033[0;32mACTIVE\033[0m'
+        print(f' │  {idx:<3} {u:<13} {p:<8} {e:<17} {l:<6} {ratio:<20} {status:<8}│')
+conn.close()
+"
+        echo -e "${YELLOW}└────────────────────────────────────────────────────────────────────────────────────────────────────────┘${NC}"
+        echo ""
+        read -p " Press Enter to return..."
+        /usr/bin/menu
+        ;;
+    9)
+        clear
+        echo -e "${CYAN}┌── [ TELEGRAM BOT MANAGER ] ────────────────────────────────┐${NC}"
+        echo -e " │ [1] Check Service Status                                  │"
+        echo -e " │ [2] Restart Bot Service                                   │"
+        echo -e " │ [3] View Live Journal Logs                                │"
+        echo -e " │ [4] Stop Bot Service                                      │"
+        echo -e "${CYAN}└────────────────────────────────────────────────────────────┘${NC}"
+        read -p " Option [1-4]: " b_opt
+        if [ "$b_opt" == "1" ]; then
+            systemctl status shirobot --no-pager
+        elif [ "$b_opt" == "2" ]; then
+            systemctl restart shirobot
+            echo -e "\n${GREEN}✓ Bot restarted.${NC}"
+        elif [ "$b_opt" == "3" ]; then
+            journalctl -u shirobot -f
+        elif [ "$b_opt" == "4" ]; then
+            systemctl stop shirobot
+            echo -e "\n${RED}✓ Bot stopped.${NC}"
+        fi
+        read -p "Press Enter to return..."
+        /usr/bin/menu
+        ;;
+    10)
+        clear
+        echo -e "${YELLOW}┌── [ 🤖 BOT & SYSTEM WIZARD ] ──────────────────────────────┐${NC}"
+        echo -e " │ Konfigurasi lengkap Bot Token, Owner, Domain, dan Forum  │"
+        echo -e "${YELLOW}├────────────────────────────────────────────────────────────┤${NC}"
+        echo -e " │ [1] Set Bot Token                                        │"
+        echo -e " │ [2] Set Owner ID & Username                              │"
+        echo -e " │ [3] Set Domain Server                                    │"
+        echo -e " │ [4] Set Forum Notifikasi                                 │"
+        echo -e " │ [5] Lihat Konfigurasi Saat Ini                           │"
+        echo -e "${YELLOW}└────────────────────────────────────────────────────────────┘${NC}"
+        read -p " Pilih [1-5]: " wiz_opt
+        case $wiz_opt in
+            1)
+                read -p " New Bot Token: " new_tok
+                if [ -n "$new_tok" ]; then
+                    python3 -c "
+import sqlite3, urllib.request, json
+conn = sqlite3.connect('/var/lib/shirobot.db')
+c = conn.cursor()
+c.execute('INSERT OR REPLACE INTO settings (key, value) VALUES ("bot_token", ?)', ('$new_tok',))
+conn.commit()
+try:
+    req = urllib.request.Request('https://api.telegram.org/bot$new_tok/getMe')
+    with urllib.request.urlopen(req, timeout=5) as resp:
+        data = json.loads(resp.read().decode())
+        if data.get('ok'):
+            uname = '@' + data['result']['username']
+            c.execute('INSERT OR REPLACE INTO settings (key, value) VALUES ("bot_username", ?)', (uname,))
+            conn.commit()
+            print(f'Bot Username: {uname}')
+except Exception as e:
+    print(f'Warning: {e}')
+conn.close()
+print('Bot Token saved to DB.')
+"
+                    systemctl restart shirobot
+                    echo -e "\n${GREEN}✓ Bot Token updated in DB, bot restarted.${NC}"
+                fi
+                ;;
+            2)
+                read -p " Owner Telegram ID (angka): " new_oid
+                read -p " Owner Username (@xxx): " new_ousr
+                if [ -n "$new_oid" ]; then
+                    python3 -c "
+import sqlite3
+conn = sqlite3.connect('/var/lib/shirobot.db')
+c = conn.cursor()
+c.execute('INSERT OR REPLACE INTO settings (key, value) VALUES ("admin_id", ?)', ('$new_oid',))
+if '$new_ousr':
+    c.execute('INSERT OR REPLACE INTO settings (key, value) VALUES ("admin_user", ?)', ('$new_ousr',))
+conn.commit()
+conn.close()
+print('Owner settings saved to DB.')
+"
+                    [ -n "$new_ousr" ] && sed -i "s/Admin     : @.*/Admin     : $new_ousr           │/" /etc/issue.net 2>/dev/null
+                    systemctl restart shirobot
+                    echo -e "\n${GREEN}✓ Owner ID & Username updated.${NC}"
+                fi
+                ;;
+            3)
+                read -p " New Domain (tanpa http): " new_dom
+                if [ -n "$new_dom" ]; then
+                    python3 -c "
+import sqlite3
+conn = sqlite3.connect('/var/lib/shirobot.db')
+c = conn.cursor()
+c.execute('INSERT OR REPLACE INTO settings (key, value) VALUES ("domain", ?)', ('$new_dom',))
+conn.commit()
+conn.close()
+print('Domain saved to DB.')
+"
+                    sed -i "s/Domain   : .*/Domain   : $new_dom/" /etc/issue.net 2>/dev/null
+                    systemctl restart shirobot
+                    echo -e "\n${GREEN}✓ Domain updated to $new_dom${NC}"
+                fi
+                ;;
+            4)
+                read -p " Forum Link / Chat ID: " input_raw
+                if [ -n "$input_raw" ]; then
+                    python3 -c "
+import re, sqlite3
+raw = '$input_raw'
+chat_id = ''
+thread_id = None
+m = re.search(r't\.me/c/(\d+)/(\d+)', raw)
+if m:
+    chat_id = '-100' + m.group(1)
+    thread_id = int(m.group(2))
+else:
+    m2 = re.search(r'(-?\d+)', raw)
+    if m2: chat_id = m2.group(1)
+if chat_id:
+    conn = sqlite3.connect('/var/lib/shirobot.db')
+    c = conn.cursor()
+    c.execute('INSERT OR REPLACE INTO settings (key, value) VALUES ("notif_chat_id", ?)', (str(chat_id),))
+    if thread_id is not None:
+        c.execute('INSERT OR REPLACE INTO settings (key, value) VALUES ("notif_thread_id", ?)', (str(thread_id),))
+    conn.commit()
+    conn.close()
+    print(f'Chat ID: {chat_id}, Thread: {thread_id}')
+else:
+    print('Invalid format.')
+"
+                    echo -e "\n${GREEN}✓ Forum notification settings saved.${NC}"
+                fi
+                ;;
+            5)
+                echo -e "\n${CYAN}--- KONFIGURASI SAAT INI ---${NC}"
+                python3 -c "
+import sqlite3
+conn = sqlite3.connect('/var/lib/shirobot.db')
+c = conn.cursor()
+keys = [('bot_token','Bot Token'), ('bot_username','Bot Username'), ('admin_id','Admin/Owner ID'), ('admin_user','Admin Username'), ('domain','Domain'), ('notif_chat_id','Notif Chat ID'), ('notif_thread_id','Notif Thread ID')]
+for k, label in keys:
+    c.execute('SELECT value FROM settings WHERE key=?', (k,))
+    r = c.fetchone()
+    v = r[0] if r else '(not set)'
+    if k == 'bot_token' and len(v) > 15:
+        v = v[:10] + '...' + v[-5:]
+    print(f'  {label:20s}: {v}')
+conn.close()
+"
+                ;;
+        esac
+        read -p "Press Enter to return..."
+        /usr/bin/menu
+        ;;    11)
+        echo -e "\n${CYAN}Mengirim luxury notification test ke topik forum...${NC}"
+        TIME_NOW=$(TZ=Asia/Jakarta date "+%d/%m/%Y %H:%M WIB")
+        TEST_MSG="╭━━━━━━━━━━━━━━━━━━━━━━╮
+      ✨ <b>ꜱʜɪʀᴏ ɴᴏᴛɪꜰɪᴄᴀᴛɪᴏɴ ꜱʏꜱᴛᴇᴍ</b>
+╰━━━━━━━━━━━━━━━━━━━━━━╯
+
+┌〔 📄 <b>ꜱʏꜱᴛᴇᴍ ᴛᴇʟᴇᴍᴇᴛʀʏ</b> 〕
+├ 🌐 <b>ᴅᴏᴍᴀɪɴ</b>   : <code>$DOMAIN</code>
+├ ⚡ <b>ꜱᴛᴀᴛᴜꜱ</b>   : <code>ALL ENGINES ONLINE</code>
+├ 🕒 <b>ᴡᴀᴋᴛᴜ</b>    : <code>$TIME_NOW</code>
+└ 👑 <b>ᴏᴡɴᴇʀ</b>    : @Hillz126
+
+━━━━━━━━━━━━━━━━━━━━━━
+🤝 <i>Uji coba siaran telemetri topik forum berhasil terhubung!</i>"
+        python3 /usr/local/bin/send_notif.py "$TEST_MSG"
+        echo -e "${GREEN}✓ Notifikasi berhasil dikirim.${NC}"
+        read -p "Press Enter to return..."
+        /usr/bin/menu
+        ;;
+    12)
+        clear
+        echo -e "${YELLOW}┌── [ BACKUP & RESTORE DATA ] ───────────────────────────────┐${NC}"
+        echo -e " │ [1] Backup Database & Configs                             │"
+        echo -e " │ [2] Restore from ZIP File                                 │"
+        echo -e "${YELLOW}└────────────────────────────────────────────────────────────┘${NC}"
+        read -p " Option [1-2]: " bk_opt
+        if [ "$bk_opt" == "1" ]; then
+            mkdir -p /root/backup_shiro/bin /root/backup_shiro/etc /root/backup_shiro/systemd
+            # Database and core configs
+            cp -r /var/lib/shirobot.db /root/backup_shiro/ 2>/dev/null
+            cp -r /usr/local/etc/xray/config.json /root/backup_shiro/ 2>/dev/null
+            cp -r /etc/wireguard /root/backup_shiro/etc/ 2>/dev/null
+            cp -r /etc/zivpn /root/backup_shiro/etc/ 2>/dev/null
+            cp /etc/issue.net /etc/dropbear_banner /etc/default/dropbear /root/backup_shiro/etc/ 2>/dev/null
+            # Scripts
+            cp /usr/local/bin/*.py /root/backup_shiro/bin/ 2>/dev/null
+            cp /usr/bin/menu /root/backup_shiro/bin/ 2>/dev/null
+            # Systemd services
+            cp /etc/systemd/system/shirobot.service /etc/systemd/system/shiro-guard.service /etc/systemd/system/ws-dropbear.service /etc/systemd/system/dropbear.service /root/backup_shiro/systemd/ 2>/dev/null
+            
+            bk_file="/root/backup_shiro_$(date +%Y%m%d_%H%M%S).zip"
+            cd /root && zip -r "$bk_file" backup_shiro >/dev/null
+            rm -rf /root/backup_shiro
+            echo -e "\n${GREEN}✓ Full System & User Database Backup created:${NC}"
+            echo -e "  📂 ${YELLOW}$bk_file${NC}"
+        elif [ "$bk_opt" == "2" ]; then
+            read -p " Path to ZIP file: " bk_path
+            if [ -f "$bk_path" ]; then
+                unzip -o "$bk_path" -d /root >/dev/null
+                # Restore DB & configs
+                [ -f /root/backup_shiro/shirobot.db ] && cp /root/backup_shiro/shirobot.db /var/lib/
+                [ -f /root/backup_shiro/config.json ] && cp /root/backup_shiro/config.json /usr/local/etc/xray/
+                [ -d /root/backup_shiro/etc/wireguard ] && cp -r /root/backup_shiro/etc/wireguard /etc/
+                [ -d /root/backup_shiro/etc/zivpn ] && cp -r /root/backup_shiro/etc/zivpn /etc/
+                [ -f /root/backup_shiro/etc/issue.net ] && cp /root/backup_shiro/etc/issue.net /etc/
+                [ -f /root/backup_shiro/etc/dropbear_banner ] && cp /root/backup_shiro/etc/dropbear_banner /etc/
+                [ -f /root/backup_shiro/etc/dropbear ] && cp /root/backup_shiro/etc/dropbear /etc/default/
+                # Restore scripts
+                [ -d /root/backup_shiro/bin ] && cp /root/backup_shiro/bin/* /usr/local/bin/ 2>/dev/null
+                [ -f /root/backup_shiro/bin/menu ] && cp /root/backup_shiro/bin/menu /usr/bin/ && chmod +x /usr/bin/menu
+                chmod +x /usr/local/bin/*.py 2>/dev/null
+                # Restore services
+                [ -d /root/backup_shiro/systemd ] && cp /root/backup_shiro/systemd/* /etc/systemd/system/ 2>/dev/null
+                systemctl daemon-reload
+                systemctl restart xray ssh dropbear ws-dropbear zivpn wg-quick@wg0 shirobot shiro-guard 2>/dev/null
+                rm -rf /root/backup_shiro
+                echo -e "\n${GREEN}✓ Full Data Restored & All Services Reloaded Successfully!${NC}"
+            else
+                echo -e "\n${RED}✗ File not found!${NC}"
+            fi
+        fi
+        read -p "Press Enter to return..."
+        /usr/bin/menu
+        ;;
+    13)
+        clear
+        echo -e "${CYAN}╔═══════════════════════════════════════════════════════════════╗${NC}"
+        echo -e "${CYAN}║           ⚡ OOKLA OFFICIAL NETWORK SPEEDTEST BENCHMARK       ║${NC}"
+        echo -e "${CYAN}╚═══════════════════════════════════════════════════════════════╝${NC}"
+        echo ""
+        /usr/bin/speedtest --accept-license --accept-gdpr
+        echo ""
+        echo -e "${CYAN}───────────────────────────────────────────────────────────────${NC}"
+        read -p " Tekan Enter untuk kembali ke menu..."
+        /usr/bin/menu
+        ;;
+    15)
+        clear
+        echo -e "${YELLOW}┌── [ RENEW USER ACCOUNT ] ───────────────────────────────────┐${NC}"
+        read -p " │ Target Username    : " r_user
+        read -p " │ Extend Duration (Days): " r_days
+        echo -e "${YELLOW}└────────────────────────────────────────────────────────────┘${NC}"
+        if [ -n "$r_user" ] && [ -n "$r_days" ]; then
+            python3 -c "
+import sys, sqlite3, datetime, subprocess
+u = sys.argv[1]
+try:
+    days = int(sys.argv[2])
+except:
+    print('[0;31m✗ Days must be a number.[0m')
+    sys.exit(1)
+
+conn = sqlite3.connect('/var/lib/shirobot.db')
+c = conn.cursor()
+c.execute('SELECT id, protocol, exp_date FROM accounts WHERE username=?', (u,))
+row = c.fetchone()
+if not row:
+    print(f'[0;31m✗ Account {u} not found in database.[0m')
+    sys.exit(1)
+
+aid, proto, exp_s = row
+now = datetime.datetime.now()
+base_dt = now
+
+try:
+    clean_exp = exp_s.replace(' WIB', '').strip()
+    if '/' in clean_exp:
+        parts = clean_exp.split(' ')
+        d_p = parts[0].split('/')
+        t_p = parts[1].split(':') if len(parts) > 1 else [0, 0]
+        parsed = datetime.datetime(int(d_p[2]), int(d_p[1]), int(d_p[0]), int(t_p[0]), int(t_p[1]))
+        if parsed > now: base_dt = parsed
+    elif '-' in clean_exp:
+        d_p = clean_exp.split('-')
+        parsed = datetime.datetime(int(d_p[0]), int(d_p[1]), int(d_p[2]), 23, 59, 59)
+        if parsed > now: base_dt = parsed
+except Exception:
+    base_dt = now
+
+new_dt = base_dt + datetime.timedelta(days=days)
+new_str = new_dt.strftime('%d/%m/%Y %H:%M WIB')
+
+c.execute('UPDATE accounts SET exp_date=? WHERE id=?', (new_str, aid))
+conn.commit()
+conn.close()
+
+if proto == 'ssh':
+    subprocess.run(f'chage -E {new_dt.strftime("%Y-%m-%d")} {u}', shell=True)
+
+print(f'
+[0;32m✓ Account {u} ({proto.upper()}) extended by +{days} days![0m')
+print(f'  📅 New Exp Date: {new_str}')
+" "$r_user" "$r_days"
+        fi
+        read -p "Press Enter to return..."
+        /usr/bin/menu
+        ;;
+    14)
+        systemctl restart xray ssh dropbear ws-dropbear badvpn-udpgw zivpn wg-quick@wg0 shirobot shiro-guard
+        echo -e "\n${GREEN}✓ All services restarted successfully.${NC}"
+        read -p "Press Enter to return..."
+        /usr/bin/menu
+        ;;
+    x|X)
+        exit 0
+        ;;
+    *)
+        echo -e "${RED}Invalid option.${NC}"
+        sleep 1
+        /usr/bin/menu
+        ;;
+esac
