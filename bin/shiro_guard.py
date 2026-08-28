@@ -37,8 +37,24 @@ def get_setting(key, default=""):
     except Exception:
         return default
 
-# Persistent memory for violations: {username: {"strikes": int, "last_strike_time": float}}
+# Persistent memory for violations and H-1 reminder notifications
 VIOLATIONS = {}
+REMINDED_ACCOUNTS = set()
+
+def auto_heal_services():
+    """Monitors critical VPN core services and restarts them automatically if crashed."""
+    services = [
+        "xray", "ssh", "dropbear", "ws-dropbear",
+        "badvpn-udpgw", "zivpn", "wg-quick@wg0", "shirobot"
+    ]
+    for srv in services:
+        try:
+            res = subprocess.run(["systemctl", "is-active", srv], capture_output=True, text=True)
+            if res.stdout.strip() != "active":
+                print(f"[AUTO-HEAL] Service {srv} is inactive/failed. Restarting immediately...")
+                subprocess.run(["systemctl", "restart", srv], capture_output=True)
+        except Exception as e:
+            print(f"[AUTO-HEAL] Error checking {srv}: {e}")
 
 def send_alert_box(title, badge, items, footer="", direct_user_id=None, reply_markup=None):
     try:
@@ -196,6 +212,34 @@ def check_expired_accounts():
                     exp_dt = datetime.datetime(int(d_parts[0]), int(d_parts[1]), int(d_parts[2]), 23, 59, 59)
                     if now >= exp_dt:
                         is_expired = True
+
+                # H-1 Reminder Check (24 hours prior to expiration)
+                if not is_expired and exp_dt:
+                    time_left = (exp_dt - now).total_seconds()
+                    if 0 < time_left <= 86400 and acc_id not in REMINDED_ACCOUNTS and not clean_exp.startswith("30 Menit"):
+                        REMINDED_ACCOUNTS.add(acc_id)
+                        bot_user_tag = get_setting("admin_user", "@vpnshirobot").replace("@", "")
+                        hours_left = max(1, int(time_left // 3600))
+                        remind_markup = {
+                            "inline_keyboard": [
+                                [{"text": "🔄 PERPANJANG / CEK AKUN", "url": f"https://t.me/{bot_user_tag}"}]
+                            ]
+                        }
+                        send_alert_box(
+                            title="PENGINGAT MASA AKTIF AKUN (H-1)",
+                            badge="⏳",
+                            items={
+                                "👤 <b>Pengguna</b>   ": f"ID <code>{user_id}</code>",
+                                "🔑 <b>Akun</b>       ": f"<code>{username}</code>",
+                                "🔌 <b>Protokol</b>   ": f"<b>{proto.upper()}</b>",
+                                "⏱️ <b>Sisa Waktu</b> ": f"<b>{hours_left} Jam Lagi</b>",
+                                "📅 <b>Kedaluwarsa</b>": f"<code>{exp_str}</code>",
+                                "⚙️ <b>Auto-Renew</b> ": "<b>🟢 AKTIF</b>" if auto_rn == 1 else "<b>⚪ NONAKTIF</b>"
+                            },
+                            footer="Masa aktif akun Anda akan segera habis dalam 24 jam. Segera perpanjang akun atau aktifkan Auto-Renew.",
+                            direct_user_id=user_id,
+                            reply_markup=remind_markup
+                        )
 
                 if is_expired:
                     # Check Auto-Renew
@@ -406,11 +450,17 @@ def enforce_quota_limits():
 
 def main():
     print("Shiro Real-time 2-Strike Multi-Protocol Guard Daemon Active...")
+    tick = 0
     while True:
         check_expired_accounts()
         enforce_ssh_ip_limit()
         enforce_xray_ip_limit()
         enforce_quota_limits()
+
+        # Check service health every 30s
+        tick += 1
+        if tick % 6 == 0:
+            auto_heal_services()
 
         # Log auto-cleaner check: truncate Xray access log if > 50MB
         try:
