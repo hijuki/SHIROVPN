@@ -536,7 +536,69 @@ def execute_system_create(proto, user, password, days=30, ip_limit=2, quota="100
 
 # ================= UI HANDLERS =================
 
-# /start Dashboard
+def format_all_in_one_account(user, password, exp_str, ip_limit="2 IP", quota="100 GB"):
+    domain_val = get_setting("domain", DOMAIN)
+    admin_tag = get_setting("admin_user", ADMIN_USER)
+
+    vless_ws = f"vless://{password}@{domain_val}:443?path=%2Fvless&security=tls&encryption=none&type=ws&sni={domain_val}#{user}-VLESS"
+    vless_grpc = f"vless://{password}@{domain_val}:443?mode=gun&security=tls&encryption=none&type=grpc&serviceName=vless-grpc&sni={domain_val}#{user}-gRPC"
+    
+    import base64
+    raw_vmess = {"v": "2", "ps": f"{user}-VMESS", "add": domain_val, "port": "443", "id": password, "aid": "0", "scy": "auto", "net": "ws", "type": "none", "host": domain_val, "path": "/vmess", "tls": "tls", "sni": domain_val}
+    vmess_ws = f"vmess://{base64.b64encode(json.dumps(raw_vmess).encode()).decode()}"
+    
+    trojan_ws = f"trojan://{password}@{domain_val}:443?path=%2Ftrojan-ws&security=tls&type=ws&sni={domain_val}#{user}-TROJAN"
+    trojan_grpc = f"trojan://{password}@{domain_val}:443?mode=gun&security=tls&type=grpc&serviceName=trojan-grpc&sni={domain_val}#{user}-Trojan-gRPC"
+
+    return f"""╭━━━━━━━━━━━━━━━━━━━━━━━━━━━━╮
+  🌟 <b>ᴀʟʟ-ɪɴ-ᴏɴᴇ ᴠɪᴘ ᴀᴄᴄᴏᴜɴᴛ</b> 🌟
+╰━━━━━━━━━━━━━━━━━━━━━━━━━━━━╯
+
+┌〔 👤 <b>ɪɴꜰᴏʀᴍᴀꜱɪ ᴀᴋᴜɴ ᴍᴀꜱᴛᴇʀ</b> 〕
+├ 👤 <b>ᴜꜱᴇʀɴᴀᴍᴇ</b> : <code>{user}</code>
+├ 🔑 <b>ᴘᴀꜱꜱ / ᴜᴜɪᴅ</b>: <code>{password}</code>
+├ 📅 <b>ᴇxᴘɪʀᴇᴅ</b>  : <code>{exp_str}</code>
+├ 🌐 <b>ɪᴘ ʟɪᴍɪᴛ</b> : {ip_limit}
+├ 📦 <b>ǫᴜᴏᴛᴀ</b>    : {quota}
+└ 🟢 <b>ꜱᴛᴀᴛᴜꜱ</b>   : <code>ACTIVE (ALL PROTOCOLS)</code>
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🌍 <b>ꜱᴇʀᴠᴇʀ:</b> <code>{domain_val}</code> (UpCloud Singapore 🇸🇬)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🚀 <b>1. ꜱꜱʜ ᴡꜱ & ᴏᴘᴇɴꜱꜱʜ</b>
+├ 🔌 <b>Port TLS/WS</b>: <code>443</code> (/ssh-ws) | <b>OpenSSH</b>: <code>80, 22</code> | <b>Dropbear</b>: <code>109, 110</code>
+├ 🎮 <b>BadVPN UDP</b>: <code>7100-7900</code>
+├ 📱 <b>HTTP Custom:</b>
+<code>{domain_val}:80@{user}:{password}</code>
+└ 📄 <b>Payload WS SSL:</b>
+<code>GET /ssh-ws HTTP/1.1[crlf]Host: {domain_val}[crlf]Upgrade: websocket[crlf][crlf]</code>
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+⚡ <b>2. ᴠʟᴇꜱꜱ ᴛʟꜱ (ᴡꜱ & ɢʀᴘᴄ)</b>
+├ 📡 <b>VLESS WS:</b>
+<code>{vless_ws}</code>
+└ ⚡ <b>VLESS gRPC:</b>
+<code>{vless_grpc}</code>
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🛡️ <b>3. ᴠᴍᴇꜱꜱ ᴛʟꜱ (ᴡꜱ)</b>
+└ 📡 <b>VMESS WS:</b>
+<code>{vmess_ws}</code>
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🔮 <b>4. ᴛʀᴏᴊᴀɴ ᴛʟꜱ (ᴡꜱ & ɢʀᴘᴄ)</b>
+├ 📡 <b>Trojan WS:</b>
+<code>{trojan_ws}</code>
+└ ⚡ <b>Trojan gRPC:</b>
+<code>{trojan_grpc}</code>
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+👑 <b>Admin:</b> {admin_tag} | 🛒 <b>Bot:</b> @vpnshirobot"""
+
 def get_maintenance_card():
     domain_val = get_setting("domain", DOMAIN)
     admin_tag = get_setting("admin_user", ADMIN_USER)
@@ -564,6 +626,19 @@ async def start_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     u = update.effective_user
     user_data = get_user(u.id, u.username)
     st = get_server_stats()
+
+    # Send Notification to Telegram Forum/Group on user /start (first-time or restart)
+    if not update.callback_query and not (context.args and len(context.args) > 0):
+        u_name_tag = f"@{u.username}" if u.username else f"ID {u.id}"
+        send_telegram_notif(
+            f"🚀 <b>PENGGUNA MEMBUKA BOT (/start)</b>\n"
+            f"━━━━━━━━━━━━━━━━━━━━━━\n"
+            f"👤 <b>Pengguna</b> : {u_name_tag} (<code>{u.id}</code>)\n"
+            f"🏷️ <b>Nama</b>     : <b>{u.first_name or 'User'}</b>\n"
+            f"💰 <b>Saldo</b>    : Rp {user_data['balance']:,}\n"
+            f"🕒 <b>Waktu</b>    : {datetime.datetime.now().strftime('%d/%m/%Y %H:%M:%S WIB')}\n"
+            f"━━━━━━━━━━━━━━━━━━━━━━"
+        )
 
     # Handle deep-link arguments (e.g. /start renew_12 or /start acc_12)
     if context.args and len(context.args) > 0:
@@ -1232,6 +1307,7 @@ async def admin_panel_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
 Pilih aksi manajemen server & bot:"""
 
     kb = [
+        [InlineKeyboardButton("⚡ AUTO CREATE ALL-IN-ONE (VIP)", callback_data="admin_create_all_prompt")],
         [InlineKeyboardButton("🤖 BOT & SYSTEM WIZARD", callback_data="admin_wizard")],
         [InlineKeyboardButton("💰 UBAH HARGA", callback_data="admin_price"), InlineKeyboardButton("👥 SET LIMIT IP", callback_data="admin_limit")],
         [InlineKeyboardButton("📦 SET QUOTA", callback_data="admin_quota"), InlineKeyboardButton("💳 TOP UP USER", callback_data="admin_topup")],
@@ -1240,6 +1316,24 @@ Pilih aksi manajemen server & bot:"""
         [InlineKeyboardButton("🔄 RESTART SERVICE CORE", callback_data="admin_restart_core")],
         [InlineKeyboardButton("« KEMBALI KE MENU", callback_data="menu_start")]
     ]
+    await query.edit_message_text(msg, reply_markup=InlineKeyboardMarkup(kb), parse_mode="HTML")
+
+async def admin_create_all_prompt(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    if update.effective_user.id != int(get_setting("admin_id", str(ADMIN_ID))): return
+
+    context.user_data["admin_typing_mode"] = "create_all_in_one"
+    msg = """┌〔 ⚡ <b>AUTO-CREATE ALL-IN-ONE ACCOUNT</b> 〕
+├ 🌟 Otomatis membuat 4 Protokol Sekaligus:
+├ 🚀 <b>SSH & OpenSSH Direct</b>
+├ ⚡ <b>VLESS WS & gRPC TLS</b>
+├ 🛡️ <b>VMESS WS TLS</b>
+├ 🔮 <b>TROJAN WS & gRPC TLS</b>
+└────────────────────────
+
+Silakan ketik <b>Username</b> untuk akun All-in-One:"""
+    kb = [[InlineKeyboardButton("« BATAL", callback_data="menu_admin")]]
     await query.edit_message_text(msg, reply_markup=InlineKeyboardMarkup(kb), parse_mode="HTML")
 
 async def admin_toggle_maintenance_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -1497,6 +1591,70 @@ async def admin_custom_input(update: Update, context: ContextTypes.DEFAULT_TYPE)
             if val:
                 set_setting("default_quota", f"{val} GB")
                 await update.message.reply_text(f"✅ <b>Default quota diubah menjadi {val} GB.</b>", reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("« KEMBALI", callback_data="menu_admin")]]), parse_mode="HTML")
+    elif mode == "create_all_in_one":
+        clean_user = re.sub(r'[^a-zA-Z0-9_-]', '', raw).lower()
+        if not clean_user or len(clean_user) < 3:
+            await update.message.reply_text("❌ <b>Username minimal 3 karakter alfabet/angka!</b>", reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("« KEMBALI", callback_data="menu_admin")]]), parse_mode="HTML")
+            return
+        
+        # Auto-generate password / UUID key
+        auto_pass = str(uuid.uuid4())
+        days = 30
+        now = datetime.datetime.now()
+        exp_dt = now + datetime.timedelta(days=days)
+        exp_str = exp_dt.strftime("%d/%m/%Y %H:%M WIB")
+        quota = get_setting("default_quota", "100 GB")
+        ip_limit = int(get_setting("default_ip_limit", "2"))
+        u_id = update.effective_user.id
+
+        # 1. Linux SSH
+        try:
+            chage_exp = exp_dt.strftime("%Y-%m-%d")
+            subprocess.run(["useradd", "-M", "-s", "/bin/false", "-e", chage_exp, clean_user], capture_output=True)
+            p = subprocess.Popen(["chpasswd"], stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            p.communicate(input=f"{clean_user}:{auto_pass}\n".encode())
+        except Exception as e:
+            print("SSH VIP creation error:", e)
+
+        # 2. Xray Core (VLESS, VMESS, TROJAN)
+        try:
+            with open("/usr/local/etc/xray/config.json", "r") as f:
+                cfg = json.load(f)
+            for inb in cfg.get("inbounds", []):
+                t = inb.get("tag", "")
+                clients = inb.get("settings", {}).get("clients", [])
+                if t == "vless-ws-inbound":
+                    clients.append({"id": auto_pass, "email": clean_user, "alterId": 0})
+                elif t == "vmess-ws-inbound":
+                    clients.append({"id": auto_pass, "email": clean_user, "alterId": 0})
+                elif t == "trojan-ws-inbound":
+                    clients.append({"password": auto_pass, "email": clean_user})
+            with open("/usr/local/etc/xray/config.json", "w") as f:
+                json.dump(cfg, f, indent=2)
+            subprocess.run(["systemctl", "restart", "xray"])
+        except Exception as e:
+            print("Xray VIP creation error:", e)
+
+        # 3. Save 4 accounts to SQLite DB
+        conn = sqlite3.connect(DB_PATH)
+        c = conn.cursor()
+        for p_type in ["ssh", "vless", "vmess", "trojan"]:
+            c.execute("""INSERT OR REPLACE INTO accounts 
+                (user_id, username, protocol, uuid_or_pass, exp_date, password, days, quota_gb, ip_limit, uuid, config_link, used_bytes, used_gb)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 0.0)""",
+                (u_id, f"{clean_user}-{p_type}" if p_type != "ssh" else clean_user, p_type, auto_pass, exp_str, auto_pass, days, quota, ip_limit, auto_pass, ""))
+        conn.commit()
+        conn.close()
+
+        vip_card = format_all_in_one_account(clean_user, auto_pass, exp_str, ip_limit=f"{ip_limit} Device", quota=quota)
+        
+        # Send card to admin
+        await update.message.reply_text(
+            vip_card,
+            reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("« KEMBALI KE PANEL ADMIN", callback_data="menu_admin")]]),
+            parse_mode="HTML"
+        )
+        return
     elif mode == "topup_user":
         target_id = re.sub(r"[^0-9]", "", raw)
         if target_id:
@@ -1844,6 +2002,7 @@ def main():
     app.add_handler(CallbackQueryHandler(help_menu, pattern="^menu_help$"))
     app.add_handler(CallbackQueryHandler(server_status_menu, pattern="^menu_server_status$"))
     app.add_handler(CallbackQueryHandler(admin_topup_prompt, pattern="^admin_topup$"))
+    app.add_handler(CallbackQueryHandler(admin_create_all_prompt, pattern="^admin_create_all_prompt$"))
     app.add_handler(CallbackQueryHandler(admin_broadcast_prompt, pattern="^admin_broadcast$"))
     app.add_handler(CallbackQueryHandler(admin_broadcast_set_target, pattern="^bc_target_"))
     app.add_handler(CallbackQueryHandler(admin_toggle_maintenance_callback, pattern="^admin_toggle_maintenance$"))
