@@ -1,59 +1,107 @@
-# ⚡ SHIRO VPN - Ultimate VPN Core & Telegram Store Bot Ecosystem
+<p align="center">
+  <img src="https://raw.githubusercontent.com/tandpfun/skill-icons/main/icons/Linux-Dark.svg" width="65" height="65" alt="Linux" />
+  <img src="https://raw.githubusercontent.com/tandpfun/skill-icons/main/icons/Python-Dark.svg" width="65" height="65" alt="Python" />
+  <img src="https://raw.githubusercontent.com/tandpfun/skill-icons/main/icons/Bash-Dark.svg" width="65" height="65" alt="Bash" />
+</p>
 
-Ekosistem server VPN otomatis modern berbasis Linux dengan **16-Option Terminal HUD Menu**, **Multi-Protocol Provisioning Core (SSH, VLESS, VMESS, TROJAN, UDP ZiVPN, WireGuard)**, serta **Interactive Telegram Bot Store (@YourBotUsername)** yang dilengkapi auto-guard, multi-IP limiter, bandwidth quota tracking, auto-purge expired, dan full database backup/restore.
+<h1 align="center">⚡ SHIRO VPN PREMIUM NETWORK ⚡</h1>
 
----
+<p align="center">
+  <b>High-Performance Multi-Protocol VPN Engine & Automated Telegram Bot Store Ecosystem</b><br>
+  <sub>Built for Speed, Resiliency, Anti-Spam Public Sharing, and Effortless Fleet Management.</sub>
+</p>
 
-## 🌟 Fitur Utama
-
-- 🚀 **Multi-Protocol Support (6 Protokol)**:
-  - OpenSSH Direct & WebSocket SSL / TLS 1.3 (Port 22, 80, 443)
-  - Dropbear WS SSL (Port 109 & 110)
-  - BadVPN UDPGW Gaming & Voice (Port 7100-7900 / 7300)
-  - VLESS WS TLS & gRPC TLS
-  - VMESS WS TLS
-  - TROJAN WS TLS & gRPC TLS
-  - UDP ZiVPN Gaming (Port 5667)
-  - WireGuard Modern VPN (Port 51820)
-- 🤖 **Interactive Telegram Store Bot**:
-  - Auto Create All-in-One VIP Card (SSH, VLESS, VMESS, TROJAN simultan)
-  - Anti-Spam Clean Share Card dengan Deep-Link Auto-Deliver
-  - 1-Click Total Account Purge dari panel admin
-  - Notifikasi instan khusus saat Pengguna Baru menekan `/start`
-  - Auto-Renew Saldo otomatis & tombol pengingat masa aktif H-1
-  - Panic / Maintenance Mode switcher
-  - Segmented Broadcast (Semua User vs Khusus User Aktif)
-  - Isolasi akun user (Member hanya melihat akun miliknya)
-  - Auto-detect ISP & Lokasi Geografis server
-  - Admin Master Panel dengan input custom Text/Interactive Wizard
-- 🛡️ **Shiro Guard Daemon (`shiro-guard.service`)**:
-  - Auto-Heal Sentinel: memonitor dan me-restart otomatis semua service core jika crash
-  - Multi-IP Limiter 2-Strike akurat dengan Grace Period 30 detik (menghitung unique client inbound IP)
-  - H-1 Expiration Checker & Auto-Deduct Balance Renew
-  - Auto-Purge expired & quota tracking
-  - Log rotation & auto-truncation file log > 50MB
-- 🖥️ **Cyber Terminal HUD Menu (`/usr/bin/menu`)**:
-  - 16 menu fungsional lengkap
-  - Real-time CPU, RAM, & Disk Usage
-  - Ookla Official Speedtest Benchmark resmi
-  - 1-Click Backup & Auto-Detect Restore dari file ZIP terbaru
-- 🎨 **HTML Symmetric Banners**:
-  - Dropbear & OpenSSH HTML Centered Multi-Color Banner (`/etc/issue.net`, `/etc/dropbear_banner`)
+<p align="center">
+  <a href="https://github.com/hijuki/SHIROVPN"><img src="https://img.shields.io/badge/Ubuntu-20.04%20%7C%2022.04%20%7C%2024.04%20%7C%2026.04-E95420?style=for-the-badge&logo=ubuntu&logoColor=white" alt="Ubuntu" /></a>
+  <a href="https://github.com/hijuki/SHIROVPN"><img src="https://img.shields.io/badge/Python-3.10%20%2B%20PEP%20668-3776AB?style=for-the-badge&logo=python&logoColor=white" alt="Python" /></a>
+  <a href="https://github.com/hijuki/SHIROVPN"><img src="https://img.shields.io/badge/Architecture-x86__64-blue?style=for-the-badge" alt="Arch" /></a>
+  <a href="https://github.com/hijuki/SHIROVPN"><img src="https://img.shields.io/badge/Telegram_Bot-AsyncIO_v20+-2CA5E0?style=for-the-badge&logo=telegram&logoColor=white" alt="Telegram" /></a>
+  <a href="https://github.com/hijuki/SHIROVPN"><img src="https://img.shields.io/badge/Security-2--Strike%20Limiter-success?style=for-the-badge" alt="Security" /></a>
+</p>
 
 ---
 
-## 🚀 Panduan Instalasi Awal (Fresh VPS Setup)
-
-### 1. Persyaratan Sistem
-- **OS**: Ubuntu 20.04 / 22.04 / 24.04 / 26.04 LTS (x86_64)
-- **Port Akses**: Pastikan port `80`, `443`, `109`, `110`, `7300/udp`, `5667/udp`, `51820/udp` terbuka di firewall VPS.
-- **Domain**: Sudah dipointing (DNS A Record) ke IP Server VPS Anda.
+## 📑 Daftar Isi
+- [✨ Fitur Utama](#-fitur-utama)
+- [🔌 Dukungan Multi-Protokol](#-dukungan-multi-protokol)
+- [🤖 Telegram Store Bot & Panel Admin](#-telegram-store-bot--panel-admin)
+- [🛡️ Sistem Auto-Heal & Multi-IP Guard](#️-sistem-auto-heal--multi-ip-guard)
+- [🚀 Panduan Instalasi 1-Baris](#-panduan-instalasi-1-baris)
+- [🖥️ Cyber Terminal HUD (`menu`)](#️-cyber-terminal-hud-menu)
+- [📦 Backup & 1-Click Auto Restore](#-backup--1-click-auto-restore)
+- [👑 Kontak & Kredit](#-kontak--kredit)
 
 ---
 
-### 2. Quick One-Line Automated Installer
+## ✨ Fitur Utama
 
-Jalankan perintah berikut pada terminal VPS baru (sebagai user `root`):
+- ⚡ **All-in-One VIP Auto-Provisioning**: Sekali klik langsung membuat kredensial di 4 protokol simultan (OpenSSH, VLESS WS/gRPC, VMESS WS, TROJAN WS/gRPC).
+- 🔗 **Deep-Link Config Auto-Deliver**: Mengirim config lengkap via DM bot hanya dengan 1 link pendek tanpa memicu bot anti-spam grup Telegram.
+- 🛡️ **2-Strike Multi-IP Limiter**: Toleransi Grace Period 30 detik untuk transisi jaringan HP/WiFi dengan deteksi socket murni (`SSH_CONNECTION`).
+- 🤖 **Self-Healing Sentinel Daemon**: Mengawasi status 9 service sistem dan merestart otomatis secara independen jika terjadi crash.
+- 💳 **Auto-Renew Saldo System**: Pemotongan saldo otomatis untuk memperpanjang masa aktif akun sebelum expired (dilengkapi tombol H-1 interactive alert).
+- 🧹 **1-Click Total Account Purge**: Menghapus seluruh file konfigurasi OS Linux, Xray core, ZiVPN, WireGuard, dan SQLite dalam 1 aksi cepat.
+- 🎨 **Symmetric Full-Color HTML Banners**: Desain banner terpusat (centered `<p align="center">`) yang rapi dan elegan untuk mobile client (HTTP Custom, NetMod, DarkTunnel, dsb).
+
+---
+
+## 🔌 Dukungan Multi-Protokol
+
+| Protokol | Port Layanan | Transport / Mode | Kegunaan |
+| :--- | :--- | :--- | :--- |
+| **OpenSSH Direct** | `22`, `80` | TCP Standard | SSH Tunneling / Direct Connection |
+| **Dropbear WS** | `109`, `110`, `1445` | WebSocket Proxy -> Port 22 | HTTP Custom & OpenVPN Payloads |
+| **BadVPN UDPGW** | `7100 - 7900` (`7300`) | UDP Gateway Daemon | Voice Chat / WhatsApp Call / Gaming |
+| **VLESS TLS** | `443` | WebSocket & gRPC (`sni=domain`) | Anti-Censor Bypass & High Bandwidth |
+| **VMESS TLS** | `443` | WebSocket (`path=/vmess`) | Legacy Client Support |
+| **TROJAN TLS** | `443` | WebSocket & gRPC Gun | High-Speed Camouflage Protocol |
+| **WireGuard** | `51820` | UDP Kernel Layer | Modern Fast & Lightweight Tunnel |
+
+---
+
+## 🤖 Telegram Store Bot & Panel Admin
+
+Bot dibangun menggunakan modern **AsyncIO Python Telegram Bot v20+** dengan UX super mulus dan responsif:
+
+```text
+╭━━━━━━━━━━━━━━━━━━━━━━━━━━━━╮
+  ⚡ ꜰʀᴇᴇ ᴠɪᴘ ᴀʟʟ-ɪɴ-ᴏɴᴇ ᴛʀɪᴀʟ ⚡
+╰━━━━━━━━━━━━━━━━━━━━━━━━━━━━╯
+
+┌〔 👤 ɪɴꜰᴏʀᴍᴀꜱɪ ᴀᴋᴜɴ ᴍᴀꜱᴛᴇʀ 〕
+├ 👤 ᴜꜱᴇʀɴᴀᴍᴇ  : freeuser
+├ 🔑 ᴘᴀꜱꜱᴡᴏʀᴅ  : secret123
+├ 🌐 ꜱᴇʀᴠᴇʀ    : sg1-shiro.my.id (Singapore 🇸🇬)
+├ 📅 ᴇxᴘɪʀᴇᴅ   : 29/09/2026 12:00 WIB (30 Hari)
+├ 📦 ǫᴜᴏᴛᴀ     : 100 GB
+├ 👥 ɪᴘ ʟɪᴍɪᴛ  : 2 Device
+├ 🔌 ꜱᴜᴘᴘᴏʀᴛ   : SSH WS, VLESS, VMESS, TROJAN
+└ 🟢 ꜱᴛᴀᴛᴜꜱ    : ACTIVE & READY TO USE
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📥 ᴀᴍʙɪʟ ᴄᴏɴꜰɪɢ ʟᴇɴɢᴋᴀᴘ (ɪɴꜱᴛᴀɴ):
+👉 [ KLIK DISINI AMBIL SEMUA CONFIG ]
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+```
+
+### ⚙️ Fitur Panel Admin Master:
+- **`⚡ AUTO CREATE ALL-IN-ONE (VIP)`** : Wizard 5 langkah (Username, SSH Password, Hari, Limit IP, Kuota).
+- **`🗑️ HAPUS AKUN TOTAL`** : Purge user dari Linux, Xray, dan database secara instan.
+- **`🤖 BOT & SYSTEM WIZARD`** : Ganti token bot, ganti owner ID/Username, dan domain tanpa restart server.
+- **`⛔ MAINTENANCE MODE`** : Panic switch 1-klik untuk menghentikan order user baru saat maintenance server.
+- **`📢 BROADCAST SEGMENTED`** : Kirim pesan ke Semua User atau Khusus User yang memiliki akun aktif.
+
+---
+
+## 🚀 Panduan Instalasi 1-Baris
+
+### 📋 Prasyarat:
+1. VPS Ubuntu Fresh (20.04 / 22.04 / 24.04 / 26.04 LTS).
+2. Domain sudah diarahkan (DNS A Record) ke IP Publik VPS.
+3. Bot Token dari [@BotFather](https://t.me/BotFather) dan Telegram ID dari [@userinfobot](https://t.me/userinfobot).
+
+### ⚡ Eksekusi Installer:
+Jalankan perintah ini sebagai user `root`:
 
 ```bash
 apt-get update -y && apt-get install -y git curl
@@ -62,17 +110,11 @@ chmod +x /tmp/SHIROVPN/setup.sh
 /tmp/SHIROVPN/setup.sh
 ```
 
-Installer akan memandu konfigurasi:
-1. **Domain VPS** (contoh: `sg1-shiro.my.id`)
-2. **Telegram Bot Token** (dari `@BotFather`)
-3. **Telegram Admin Master User ID** (contoh: `6343065438`)
-4. **Username Telegram Admin** (contoh: `@Hillz126`)
-
-Semua dependensi sistem, binary BadVPN UDPGW, sertifikat SSL Let's Encrypt, cron/logrotate, service daemon, konfigurasi, dan SQLite DB akan dipasang otomatis.
+Installer otomatis menyetel sertifikat **Let's Encrypt SSL**, mengompilasi **BadVPN**, memasang dependensi Python, konfigurasi systemd, logrotate 50MB, dan langsung menyalakan bot Telegram.
 
 ---
 
-## 💻 Cara Menggunakan Terminal Menu VPS
+## 🖥️ Cyber Terminal HUD (`menu`)
 
 Cukup ketik perintah berikut pada terminal SSH Anda:
 
@@ -80,9 +122,8 @@ Cukup ketik perintah berikut pada terminal SSH Anda:
 menu
 ```
 
-### Daftar Menu:
-```
-┌────────────────────── MAIN MENU ────────────────────────────┐
+```text
+┌─────────────────────── MAIN MENU ───────────────────────────┐
  [1]  SSH & WS SSL          [9]  BOT MANAGER
  [2]  VLESS TLS / gRPC      [10] CONNECT TOPIC FORUM
  [3]  VMESS TLS             [11] CHANGE BOT TOKEN
@@ -92,28 +133,18 @@ menu
  [7]  REVOKE USER           [15] RESTART ALL SERVICES
  [8]  LIST ALL ACCOUNTS     [16] RENEW USER ACCOUNT
  [x]  EXIT MENU
-└─────────────────────────────────────────────────────────────┘
+└────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## 📦 Cara Migrasi / Backup & Restore Data
+## 📦 Backup & 1-Click Auto Restore
 
-1. **Membuat Backup di VPS Lama**:
-   - Ketik `menu` -> Pilih menu `[13] BACKUP & RESTORE` -> Pilih opsi `[1]`.
-   - File zip backup lengkap akan tersimpan di `/root/backup_shiro_YYYYMMDD_HHMMSS.zip`.
-   - Unduh file zip tersebut ke komputer Anda.
-
-2. **Restore di VPS Baru**:
-   - Setup fresh VPS menggunakan `setup.sh`.
-   - Upload file zip backup ke VPS baru (misal di `/root/backup.zip`).
-   - Ketik `menu` -> Pilih menu `[13] BACKUP & RESTORE` -> Pilih opsi `[2]` -> Masukkan path `/root/backup.zip`.
-   - Seluruh data user, database akun, token bot, dan konfigurasi lama akan otomatis aktif seketika tanpa kehilangan data.
+1. **Backup**: Jalankan `menu` -> `[13] BACKUP & RESTORE` -> Opsi `[1]`. Seluruh database SQLite, config Xray, dan WireGuard akan dikemas menjadi file `/root/backup_shiro_*.zip`.
+2. **Auto Restore**: Di VPS baru, cukup jalankan `menu` -> `[13] BACKUP & RESTORE` -> Opsi `[2]`. Skrip secara otomatis mendeteksi file zip backup terbaru dan memulihkan seluruh akun dan konfigurasi dalam 3 detik!
 
 ---
 
-## 👑 Lisensi & Pengembang
-
-- **Owner / Creator**: [@YourTelegramUsername](https://t.me/YourTelegramUsername)
-- **Repository**: [hijuki/SHIROVPN](https://github.com/hijuki/SHIROVPN)
-- **Release Edition**: `SHIRO-ZNANDEV-PRO-2026`
+<p align="center">
+  <sub>Developed & Maintained by <a href="https://github.com/hijuki"><b>hijuki</b></a> • SHIROVPN Pro Edition</sub>
+</p>
