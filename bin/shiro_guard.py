@@ -180,8 +180,17 @@ def process_multi_ip_violation(acc_id, user_id, username, proto, limit, detected
     - Strike 2: Delete account permanently.
     """
     now = time.time()
-    v_data = VIOLATIONS.get(username, {"strikes": 0, "last_time": 0})
-    
+    v_data = VIOLATIONS.get(username, {"strikes": 0, "first_seen": 0, "last_time": 0})
+
+    # Grace Period 30 detik: IP overlap transisi jaringan harus stabil >30s sebelum dihitung Strike
+    if v_data.get("first_seen", 0) == 0:
+        v_data["first_seen"] = now
+        VIOLATIONS[username] = v_data
+        return
+    elif (now - v_data.get("first_seen", 0)) < 30:
+        # Masih dalam batas toleransi pergantian jaringan (grace period 30s)
+        return
+
     # Cooldown 120s to prevent spamming notifications on the same incident
     if (now - v_data.get("last_time", 0)) < 120:
         return
@@ -198,18 +207,18 @@ def process_multi_ip_violation(acc_id, user_id, username, proto, limit, detected
             title=f"PERINGATAN MULTI-IP (1/2) - {proto.upper()}",
             badge="⚠️",
             items={
-                "👤 <b>Pengguna</b>  ": f"ID <code>{user_id}</code>",
-                "🔑 <b>Akun</b>      ": f"<code>{username}</code>",
-                "🔌 <b>Protokol</b>  ": f"<b>{proto.upper()}</b>",
+                "👤 <b>Pengguna</b>   ": f"ID <code>{user_id}</code>",
+                "🔑 <b>Akun</b>       ": f"<code>{username}</code>",
+                "🔌 <b>Protokol</b>   ": f"<b>{proto.upper()}</b>",
                 "🌐 <b>Batas Limit</b>": f"<b>{limit} Device/IP</b>",
-                "🚨 <b>Terdeteksi</b> ": "<b>Login lebih dari batas</b>",
-                "⚡ <b>Status</b>     ": "<code>PERINGATAN PERTAMA</code>"
+                "🚨 <b>Terdeteksi</b>  ": f"<b>Login lebih dari batas ({len(detected_ips)} ip online)</b>",
+                "⚡ <b>Status</b>      ": "<code>PERINGATAN PERTAMA</code>"
             },
             footer="Jika terdeteksi multi-login sekali lagi (Peringatan 2/2), akun akan otomatis DIHAPUS permanen."
         )
     elif strike_num >= 2:
         # Strike 2: Auto-Delete
-        delete_account_complete(acc_id, user_id, username, proto, reason=f"MULTI-IP (Melebihi Limit {limit} Device)")
+        delete_account_complete(acc_id, user_id, username, proto, reason=f"MULTI-IP (Melebihi Limit {limit} Device - {len(detected_ips)} IP Online)")
 
 # 3. SSH MULTI-IP CHECKER (Inspects pure INCOMING client connections only)
 def enforce_ssh_ip_limit():
