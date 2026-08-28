@@ -96,6 +96,23 @@ if [ -f "${SCRIPT_DIR}/etc/xray_config.json" ] && [ ! -f /usr/local/etc/xray/con
     cp "${SCRIPT_DIR}/etc/xray_config.json" /usr/local/etc/xray/config.json
 fi
 
+# SSL Certificate Provisioning via Certbot / OpenSSL
+echo -e "${CYAN}[4.5/7] Mengenerate SSL/TLS Certificate Resmi untuk Domain $DOMAIN_INPUT...${NC}"
+if which certbot >/dev/null 2>&1 || apt-get install -y certbot >/dev/null 2>&1; then
+    certbot certonly --standalone --preferred-challenges http -d "$DOMAIN_INPUT" --register-unsafely-without-email --agree-tos -n 2>/dev/null || true
+fi
+
+if [ -f "/etc/letsencrypt/live/$DOMAIN_INPUT/fullchain.pem" ]; then
+    cp "/etc/letsencrypt/live/$DOMAIN_INPUT/fullchain.pem" /usr/local/etc/xray/xray.crt
+    cp "/etc/letsencrypt/live/$DOMAIN_INPUT/privkey.pem" /usr/local/etc/xray/xray.key
+    chmod 644 /usr/local/etc/xray/xray.crt /usr/local/etc/xray/xray.key
+    echo -e "${GREEN}✓ Let's Encrypt SSL resmi berhasil dipasang untuk $DOMAIN_INPUT!${NC}"
+else
+    openssl req -x509 -newkey rsa:2048 -keyout /usr/local/etc/xray/xray.key -out /usr/local/etc/xray/xray.crt -days 3650 -nodes -subj "/CN=$DOMAIN_INPUT" >/dev/null 2>&1
+    chmod 644 /usr/local/etc/xray/xray.crt /usr/local/etc/xray/xray.key
+    echo -e "${YELLOW}⚠ Certbot limit/gagal, menggunakan Self-Signed Certificate CN=$DOMAIN_INPUT.${NC}"
+fi
+
 echo -e "${CYAN}[5/7] Menyimpan Konfigurasi ke SQLite Database Master...${NC}"
 mkdir -p /var/lib
 BOT_TOKEN_INPUT="$BOT_TOKEN_INPUT" ADMIN_ID_INPUT="$ADMIN_ID_INPUT" \
