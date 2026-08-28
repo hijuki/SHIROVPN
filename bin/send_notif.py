@@ -14,7 +14,7 @@ def get_setting(key, default=""):
         row = c.fetchone()
         conn.close()
         return row[0] if row else default
-    except:
+    except Exception:
         return default
 
 def send_notif(message):

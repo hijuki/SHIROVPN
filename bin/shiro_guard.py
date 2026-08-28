@@ -8,6 +8,9 @@ import sqlite3
 import datetime
 import subprocess
 
+def valid_username(u):
+    return bool(re.match(r'^[a-z0-9_-]+$', u))
+
 DB_PATH = "/var/lib/shirobot.db"
 XRAY_CONFIG = "/usr/local/etc/xray/config.json"
 ACCESS_LOG = "/var/log/xray/access.log"
@@ -106,8 +109,11 @@ def check_expired_accounts():
                     print(f"PURGING EXPIRED ACCOUNT: {username} ({proto}) [Exp: {exp_str}]")
                     
                     if proto == "ssh":
-                        subprocess.run(["pkill", "-9", "-u", username], capture_output=True)
-                        subprocess.run(["userdel", "-r", "-f", username], capture_output=True)
+                        if valid_username(username):
+                            subprocess.run(["pkill", "-9", "-u", username], capture_output=True)
+                            subprocess.run(["userdel", "-r", "-f", username], capture_output=True)
+                        else:
+                            print(f"Invalid username, skipping purge: {username}")
                     elif proto in ["vless", "vmess", "trojan"]:
                         remove_from_xray(username)
                     elif proto == "zivpn":
@@ -120,7 +126,7 @@ def check_expired_accounts():
                                         if not zl.startswith(f"{username}:"):
                                             f.write(zl)
                                 subprocess.run(["systemctl", "restart", "zivpn"], capture_output=True)
-                        except: pass
+                        except Exception: pass
                     elif proto == "wg":
                         subprocess.run(["python3", "/usr/local/bin/manage_wg.py", "del", username], capture_output=True)
 
@@ -204,7 +210,10 @@ def enforce_quota_limits():
                 if (used_b or 0) >= total_bytes:
                     print(f"QUOTA EXCEEDED: {uname} used {used_b} >= {total_bytes}")
                     if proto == "ssh":
-                        subprocess.run(["userdel", "-r", "-f", uname], capture_output=True)
+                        if valid_username(uname):
+                            subprocess.run(["userdel", "-r", "-f", uname], capture_output=True)
+                        else:
+                            print(f"Invalid username, skipping quota purge: {uname}")
                     elif proto in ["vless", "vmess", "trojan"]:
                         remove_from_xray(uname)
                     c.execute("DELETE FROM accounts WHERE id=?", (aid,))

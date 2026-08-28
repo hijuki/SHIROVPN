@@ -11,6 +11,7 @@ BUFFER_SIZE = 8192
 def handle_client(client_socket):
     try:
         # Read the initial HTTP Request (e.g. GET /ssh-ws HTTP/1.1 ...)
+        client_socket.settimeout(30)
         req_data = client_socket.recv(BUFFER_SIZE)
         if not req_data:
             client_socket.close()
@@ -43,11 +44,11 @@ def handle_client(client_socket):
     finally:
         try:
             client_socket.close()
-        except:
+        except Exception:
             pass
         try:
             target_socket.close()
-        except:
+        except Exception:
             pass
 
 def main():

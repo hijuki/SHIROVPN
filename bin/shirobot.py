@@ -24,6 +24,11 @@ from telegram.ext import (
     filters,
 )
 
+
+def valid_username(u):
+    """Validate username: only lowercase letters, digits, underscore, hyphen."""
+    return bool(re.match(r'^[a-z0-9_-]+$', u))
+
 # ================= CONFIGURATION =================
 # Dynamic settings loader from SQLite DB
 def _db_boot(key, fallback=""):
@@ -35,7 +40,7 @@ def _db_boot(key, fallback=""):
         row = c.fetchone()
         conn.close()
         return row[0] if row and row[0] else fallback
-    except:
+    except Exception:
         return fallback
 
 BOT_TOKEN = _db_boot("bot_token", "YOUR_BOT_TOKEN_HERE")
@@ -229,8 +234,8 @@ def get_account_quota_info(username):
 
 def get_server_stats():
     try:
-        uptime = subprocess.check_output("uptime -p", shell=True, text=True).strip().replace("up ", "")
-    except:
+        uptime = subprocess.check_output(["uptime", "-p"], text=True).strip().replace("up ", "")
+    except Exception:
         uptime = "Active"
     
     try:
@@ -241,7 +246,7 @@ def get_server_stats():
         c.execute("SELECT COUNT(*) FROM users")
         total_users = c.fetchone()[0]
         conn.close()
-    except:
+    except Exception:
         total_acc, total_users = 0, 0
     
     return {"uptime": uptime, "total_acc": total_acc, "total_users": total_users}
@@ -437,10 +442,16 @@ def execute_system_create(proto, user, password, days=30, ip_limit=2, quota="100
     uid_str = str(uuid.uuid4())
     config_link = ""
 
+    # Validate username before any system command
+    if not valid_username(user):
+        print(f"Invalid username rejected: {user}")
+        return "", exp_str, ""
+
     if proto == "ssh":
         try:
-            subprocess.run(f"useradd -e $(date -d '{days} days' +%Y-%m-%d) -s /bin/false -M {user}", shell=True, check=True)
-            subprocess.run(f"echo '{user}:{password}' | chpasswd", shell=True, check=True)
+            exp_date = (datetime.datetime.now() + datetime.timedelta(days=int(days))).strftime("%Y-%m-%d")
+            subprocess.run(["useradd", "-e", exp_date, "-s", "/bin/false", "-M", user], check=True)
+            subprocess.run(["chpasswd"], input=f"{user}:{password}\n", text=True, check=True)
         except Exception as e:
             print("SSH useradd error:", e)
         uid_str = password
@@ -463,7 +474,7 @@ def execute_system_create(proto, user, password, days=30, ip_limit=2, quota="100
             
             with open("/usr/local/etc/xray/config.json", "w") as f:
                 json.dump(cfg, f, indent=2)
-            subprocess.run("systemctl restart xray", shell=True)
+            subprocess.run(["systemctl", "restart", "xray"])
         except Exception as e:
             print("Xray add error:", e)
 
@@ -472,14 +483,14 @@ def execute_system_create(proto, user, password, days=30, ip_limit=2, quota="100
             os.makedirs("/etc/zivpn", exist_ok=True)
             with open("/etc/zivpn/users.db", "a") as f:
                 f.write(f"{user}:{password}\n")
-            subprocess.run("systemctl restart zivpn", shell=True)
+            subprocess.run(["systemctl", "restart", "zivpn"])
         except Exception as e:
             print("ZiVPN add error:", e)
         uid_str = password
 
     elif proto == "wg":
         try:
-            res = subprocess.run(f"python3 /usr/local/bin/manage_wg.py add {user}", shell=True, capture_output=True, text=True)
+            res = subprocess.run(["python3", "/usr/local/bin/manage_wg.py", "add", user], capture_output=True, text=True)
             config_link = res.stdout.strip()
         except Exception as e:
             print("Wireguard add error:", e)
@@ -646,7 +657,13 @@ Silakan ketik <b>Username</b> yang Anda inginkan (huruf/angka tanpa spasi):"""
     return BUY_USER
 
 async def buy_input_user(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user = update.message.text.strip().replace(" ", "")
+    user = update.message.text.strip().replace(" ", "").lower()
+    if not valid_username(user) or len(user) > 32:
+        await update.message.reply_text(
+            "⚠️ <b>Username tidak valid!</b>\n\nGunakan huruf kecil, angka, underscore, atau dash saja (maks 32 karakter).",
+            parse_mode="HTML"
+        )
+        return BUY_USER
     context.user_data["buy_user"] = user
     proto = context.user_data.get("buy_proto", "ssh")
 
@@ -692,7 +709,7 @@ async def buy_input_days(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = update.message.text.strip()
     try:
         days = int(re.search(r'\d+', text).group(0))
-    except:
+    except Exception:
         days = 30
     
     context.user_data["buy_days"] = days
@@ -717,7 +734,7 @@ Ketik batas <b>Jumlah IP</b> (Contoh: <code>2</code> atau <code>5</code>):"""
 async def buy_admin_input_limit(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         ip_limit = int(re.search(r'\d+', update.message.text.strip()).group(0))
-    except:
+    except Exception:
         ip_limit = 2
     context.user_data["buy_limit"] = ip_limit
 
@@ -891,7 +908,11 @@ async def my_accounts_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def account_detail_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
-    acc_id = query.data.replace("acc_view_", "")
+    try:
+        acc_id = int(query.data.replace("acc_view_", ""))
+    except (ValueError, AttributeError):
+        await query.edit_message_text("❌ Data tidak valid.", parse_mode="HTML")
+        return
     u_id = update.effective_user.id
     admin_id_val = int(get_setting("admin_id", str(ADMIN_ID)))
 
@@ -1094,7 +1115,7 @@ async def admin_restart_core(update: Update, context: ContextTypes.DEFAULT_TYPE)
     if update.effective_user.id != ADMIN_ID: return
     
     await query.edit_message_text("⏳ <i>Merestart seluruh engine service tunneling...</i>", parse_mode="HTML")
-    subprocess.run("systemctl restart xray ssh dropbear ws-dropbear zivpn wg-quick@wg0 shiro-guard", shell=True)
+    subprocess.run(["systemctl", "restart", "xray", "ssh", "dropbear", "ws-dropbear", "zivpn", "wg-quick@wg0", "shiro-guard"])
     await query.edit_message_text("✅ <b>Seluruh service core tunneling berhasil direstart!</b>", reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("« KEMBALI", callback_data="menu_admin")]]), parse_mode="HTML")
 
 
@@ -1335,7 +1356,7 @@ async def admin_custom_input(update: Update, context: ContextTypes.DEFAULT_TYPE)
                     text=f"💳 <b>TOP UP SALDO DITERIMA!</b>\n\nSaldo Anda telah ditambahkan sebesar <b>Rp {amt_int:,}</b> oleh Admin.\nSaldo Anda sekarang: <b>Rp {u_info['balance']:,}</b>",
                     parse_mode="HTML"
                 )
-            except: pass
+            except Exception: pass
             return
     elif mode == "broadcast":
         conn = sqlite3.connect(DB_PATH)
@@ -1350,7 +1371,7 @@ async def admin_custom_input(update: Update, context: ContextTypes.DEFAULT_TYPE)
             try:
                 await context.bot.send_message(chat_id=uid, text=bc_header + raw, parse_mode="HTML")
                 sent_count += 1
-            except: pass
+            except Exception: pass
         
         await update.message.reply_text(
             f"✅ <b>BROADCAST SELESAI!</b>\n\nPesan berhasil terkirim ke <b>{sent_count} / {len(user_list)}</b> pengguna aktif.",
@@ -1402,7 +1423,11 @@ async def renew_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await query.answer()
     # Clear any lingering typing mode
     context.user_data["admin_typing_mode"] = ""
-    acc_id = query.data.replace("renew_acc_", "")
+    try:
+        acc_id = int(query.data.replace("renew_acc_", ""))
+    except (ValueError, AttributeError):
+        await query.edit_message_text("❌ Data tidak valid.", parse_mode="HTML")
+        return ConversationHandler.END
     u = update.effective_user
     admin_id_val = int(get_setting("admin_id", str(ADMIN_ID)))
 
@@ -1517,7 +1542,7 @@ async def renew_input_days(update: Update, context: ContextTypes.DEFAULT_TYPE):
         try:
             # chage -E YYYY-MM-DD
             chage_exp = new_exp_dt.strftime("%Y-%m-%d")
-            subprocess.run(f"chage -E {chage_exp} {uname}", shell=True)
+            subprocess.run(['chage', '-E', chage_exp, uname])
         except Exception:
             pass
 

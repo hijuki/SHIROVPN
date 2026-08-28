@@ -5,8 +5,8 @@ import os
 
 def add_peer(username, ip_num=2):
     try:
-        priv = subprocess.getoutput("wg genkey").strip()
-        pub = subprocess.getoutput(f"echo '{priv}' | wg pubkey").strip()
+        priv = subprocess.run(["wg", "genkey"], capture_output=True, text=True).stdout.strip()
+        pub = subprocess.run(["wg", "pubkey"], input=priv, capture_output=True, text=True).stdout.strip()
         
         # Server pubkey
         server_pub = open("/etc/wireguard/public.key").read().strip()

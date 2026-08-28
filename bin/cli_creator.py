@@ -10,7 +10,19 @@ import sqlite3
 
 DB_PATH = "/var/lib/shirobot.db"
 XRAY_CONFIG = "/usr/local/etc/xray/config.json"
-DOMAIN = "your-domain.com"
+def get_domain():
+    import sqlite3
+    try:
+        conn = sqlite3.connect("/var/lib/shirobot.db")
+        c = conn.cursor()
+        c.execute('SELECT value FROM settings WHERE key="domain"')
+        r = c.fetchone()
+        conn.close()
+        return r[0] if r else "your-domain.com"
+    except Exception:
+        return "your-domain.com"
+
+DOMAIN = get_domain()
 
 # ANSI Terminal Colors
 CYAN = '\033[0;36m'
@@ -202,27 +214,35 @@ def cli_create_account(proto):
 
     exp_dt = datetime.datetime.now() + datetime.timedelta(days=days)
     exp_str = exp_dt.strftime("%d/%m/%Y %H:%M WIB")
-    u_uuid = password if proto in ["vless", "vmess"] else str(uuid.uuid4())
+    u_uuid = str(uuid.uuid4())
 
     # Build format
     if proto == "ssh":
-        subprocess.run(f"useradd -e `date -d '365 days' +\"%Y-%m-%d\"` -s /bin/false -M {username} 2>/dev/null", shell=True)
-        subprocess.run(f"echo '{username}:{password}' | chpasswd", shell=True)
+        import datetime as _dt
+        exp_date = (_dt.datetime.now() + _dt.timedelta(days=365)).strftime("%Y-%m-%d")
+        subprocess.run(["useradd", "-e", exp_date, "-s", "/bin/false", "-M", username], stderr=subprocess.DEVNULL)
+        subprocess.run(["chpasswd"], input=f"{username}:{password}\n", text=True)
         card = format_admin_ssh(username, password, exp_str, ip_limit_str, quota_str)
     elif proto == "vless":
-        subprocess.run(f"python3 -c \"import json; f=open('{XRAY_CONFIG}'); c=json.load(f); f.close(); c['inbounds'][0]['settings']['clients'].append({{'id':'{u_uuid}','email':'{username}'}}); f=open('{XRAY_CONFIG}','w'); json.dump(c,f,indent=2); f.close()\"", shell=True)
+        with open(XRAY_CONFIG) as _f: _cfg = json.load(_f)
+        _cfg['inbounds'][0]['settings']['clients'].append({'id': u_uuid, 'email': username})
+        with open(XRAY_CONFIG, 'w') as _f: json.dump(_cfg, _f, indent=2)
         subprocess.run("systemctl restart xray", shell=True)
         card = format_admin_xray("vless", username, u_uuid, exp_str, ip_limit_str, quota_str)
     elif proto == "vmess":
-        subprocess.run(f"python3 -c \"import json; f=open('{XRAY_CONFIG}'); c=json.load(f); f.close(); c['inbounds'][2]['settings']['clients'].append({{'id':'{u_uuid}','email':'{username}'}}); f=open('{XRAY_CONFIG}','w'); json.dump(c,f,indent=2); f.close()\"", shell=True)
+        with open(XRAY_CONFIG) as _f: _cfg = json.load(_f)
+        _cfg['inbounds'][2]['settings']['clients'].append({'id': u_uuid, 'email': username})
+        with open(XRAY_CONFIG, 'w') as _f: json.dump(_cfg, _f, indent=2)
         subprocess.run("systemctl restart xray", shell=True)
         card = format_admin_xray("vmess", username, u_uuid, exp_str, ip_limit_str, quota_str)
     elif proto == "trojan":
-        subprocess.run(f"python3 -c \"import json; f=open('{XRAY_CONFIG}'); c=json.load(f); f.close(); c['inbounds'][3]['settings']['clients'].append({{'password':'{password}','email':'{username}'}}); f=open('{XRAY_CONFIG}','w'); json.dump(c,f,indent=2); f.close()\"", shell=True)
+        with open(XRAY_CONFIG) as _f: _cfg = json.load(_f)
+        _cfg['inbounds'][3]['settings']['clients'].append({'password': password, 'email': username})
+        with open(XRAY_CONFIG, 'w') as _f: json.dump(_cfg, _f, indent=2)
         subprocess.run("systemctl restart xray", shell=True)
         card = format_admin_xray("trojan", username, password, exp_str, ip_limit_str, quota_str)
     elif proto == "zivpn":
-        subprocess.run(f"python3 /usr/local/bin/manage_zivpn.py {username}", shell=True)
+        subprocess.run(["python3", "/usr/local/bin/manage_zivpn.py", username])
         card = format_admin_zivpn(username, password, exp_str, ip_limit_str, quota_str)
     elif proto == "wg":
         conf_raw = subprocess.getoutput(f"python3 /usr/local/bin/manage_wg.py {username}")
