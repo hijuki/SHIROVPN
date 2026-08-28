@@ -5,7 +5,7 @@ import sys
 import threading
 
 LISTEN_PORT = 1445
-TARGET_PORT = 109
+TARGET_PORT = 22
 BUFFER_SIZE = 8192
 
 def handle_client(client_socket):
