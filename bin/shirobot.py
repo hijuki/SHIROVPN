@@ -187,13 +187,15 @@ def get_user(user_id, username=""):
     role = "owner" if user_id == ADMIN_ID else "member"
     c.execute("SELECT user_id, username, balance, role FROM users WHERE user_id=?", (user_id,))
     row = c.fetchone()
+    is_new_user = False
     if not row:
         c.execute("INSERT INTO users (user_id, username, balance, role) VALUES (?, ?, 0, ?)", (user_id, username or f"user_{user_id}", role))
         conn.commit()
         c.execute("SELECT user_id, username, balance, role FROM users WHERE user_id=?", (user_id,))
         row = c.fetchone()
+        is_new_user = True
     conn.close()
-    return {"user_id": row[0], "username": row[1], "balance": row[2], "role": row[3]}
+    return {"user_id": row[0], "username": row[1], "balance": row[2], "role": row[3], "is_new_user": is_new_user}
 
 def update_user_balance(user_id, amount):
     conn = sqlite3.connect(DB_PATH)
@@ -628,17 +630,17 @@ async def start_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_data = get_user(u.id, u.username)
     st = get_server_stats()
 
-    # Send Notification to Telegram Forum/Group on user /start (first-time or restart)
-    if not update.callback_query and not (context.args and len(context.args) > 0):
+    # Send Notification to Telegram Forum/Group ONLY on NEW user first-time /start
+    if user_data.get("is_new_user") and not update.callback_query and not (context.args and len(context.args) > 0):
         u_name_tag = f"@{u.username}" if u.username else f"ID {u.id}"
         send_telegram_notif(
-            f"🚀 <b>PENGGUNA MEMBUKA BOT (/start)</b>\n"
+            f"🎉 <b>PENGGUNA BARU BERGABUNG!</b>\n"
             f"━━━━━━━━━━━━━━━━━━━━━━\n"
             f"👤 <b>Pengguna</b> : {u_name_tag} (<code>{u.id}</code>)\n"
             f"🏷️ <b>Nama</b>     : <b>{u.first_name or 'User'}</b>\n"
-            f"💰 <b>Saldo</b>    : Rp {user_data['balance']:,}\n"
             f"🕒 <b>Waktu</b>    : {datetime.datetime.now().strftime('%d/%m/%Y %H:%M:%S WIB')}\n"
-            f"━━━━━━━━━━━━━━━━━━━━━━"
+            f"━━━━━━━━━━━━━━━━━━━━━━\n"
+            f"ℹ️ <i>Pengguna baru telah memulai interaksi dengan bot.</i>"
         )
 
     # Handle deep-link arguments (e.g. /start renew_12 or /start acc_12)
