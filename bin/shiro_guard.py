@@ -383,6 +383,14 @@ def main():
         enforce_ssh_ip_limit()
         enforce_xray_ip_limit()
         enforce_quota_limits()
+
+        # Log auto-cleaner check: truncate Xray access log if > 50MB
+        try:
+            if os.path.exists(ACCESS_LOG) and os.path.getsize(ACCESS_LOG) > 50 * 1024 * 1024:
+                with open(ACCESS_LOG, "w") as f:
+                    pass
+        except Exception: pass
+
         time.sleep(5)
 
 if __name__ == "__main__":

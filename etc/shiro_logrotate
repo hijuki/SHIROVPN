@@ -1,0 +1,9 @@
+/var/log/xray/*.log /var/log/nginx/*.log /var/log/dropbear.log /var/log/auth.log {
+    daily
+    missingok
+    rotate 3
+    compress
+    delaycompress
+    notifempty
+    copytruncate
+}
