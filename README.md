@@ -146,5 +146,5 @@ menu
 ---
 
 <p align="center">
-  <sub>Developed & Maintained by <a href="https://github.com/hijuki"><b>hijuki</b></a> • SHIROVPN Pro Edition</sub>
+  <sub>Developed & Maintained by <a href="https://github.com/hijuki"><b>SHIRO HLZ</b></a> • SHIROVPN Pro Edition</sub>
 </p>
