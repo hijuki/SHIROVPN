@@ -10,7 +10,10 @@ import datetime
 import asyncio
 import subprocess
 import re
+import urllib.request
 
+import telegram
+from telegram.error import BadRequest, TimedOut
 from telegram import (
     Update,
     InlineKeyboardButton,
@@ -299,15 +302,14 @@ def format_ssh_account(user, password, exp_str, ip_limit=2, quota="100 GB"):
 
 ┌〔 🔌 <b>ᴘᴏʀᴛ</b> 〕
 ├ 🔐 <b>ᴛʟꜱ / ᴡꜱ ꜱꜱʟ</b> : 443 (Path: /ssh-ws)
-├ 🌐 <b>ᴏᴘᴇɴꜱꜱʜ</b>     : 80, 22
+├ 🌐 <b>ᴏᴘᴇɴꜱꜱʜ</b>     : 22
 ├ 📡 <b>ᴅʀᴏᴘʙᴇᴀʀ</b>    : 109, 110
-├ 🛡 <b>ꜱᴛᴜɴɴᴇʟ</b>     : 222, 333, 444, 777
-└ 🎮 <b>ʙᴀᴅᴠᴘɴ ᴜᴅᴘ</b>  : 7100-7900
+└ 🎮 <b>ʙᴀᴅᴠᴘɴ ᴜᴅᴘ</b>  : 7300
 
 ━━━━━━━━━━━━━━━━━━━━━━
 
 📡 <b>ʜᴛᴛᴘ ᴄᴜꜱᴛᴏᴍ</b>
-<code>{DOMAIN}:80@{user}:{password}</code>
+<code>{DOMAIN}:443@{user}:{password}</code>
 
 ━━━━━━━━━━━━━━━━━━━━━━
 
@@ -329,7 +331,7 @@ def format_xray_account(proto, user, u_id, exp_str, ip_limit=2, quota="100 GB"):
         grpc_link = f"vless://{u_id}@{DOMAIN}:443?mode=gun&security=tls&encryption=none&type=grpc&serviceName=vless-grpc&sni={DOMAIN}#{user}-gRPC"
     elif proto == "trojan":
         link = f"trojan://{u_id}@{DOMAIN}:443?path=%2Ftrojan-ws&security=tls&type=ws&sni={DOMAIN}#{user}"
-        grpc_link = f"trojan://{u_id}@{DOMAIN}:443?mode=gun&security=tls&type=grpc&serviceName=trojan-grpc&sni={DOMAIN}#{user}-gRPC"
+        grpc_link = link
     else: # vmess
         vm_dict = {
             "v": "2", "ps": user, "add": DOMAIN, "port": "443", "id": u_id,
@@ -365,7 +367,7 @@ def format_xray_account(proto, user, u_id, exp_str, ip_limit=2, quota="100 GB"):
 ┌〔 🔌 <b>ᴘᴏʀᴛ</b> 〕
 ├ 🔐 <b>ᴛʟꜱ / ᴡꜱ ꜱꜱʟ</b> : 443 (Path: /{proto})
 ├ 🚀 <b>ɢʀᴘᴄ ꜱᴇʀᴠɪᴄᴇ</b>: {proto}-grpc (ALPN h2)
-└ 🎮 <b>ʙᴀᴅᴠᴘɴ ᴜᴅᴘ</b>  : 7100-7900
+└ 🎮 <b>ʙᴀᴅᴠᴘɴ ᴜᴅᴘ</b>  : 7300
 
 ━━━━━━━━━━━━━━━━━━━━━━
 
@@ -492,14 +494,9 @@ def execute_system_create(proto, user, password, days=30, ip_limit=2, quota="100
             print("Xray add error:", e)
 
     elif proto == "zivpn":
-        try:
-            os.makedirs("/etc/zivpn", exist_ok=True)
-            with open("/etc/zivpn/users.db", "a") as f:
-                f.write(f"{user}:{password}\n")
-            subprocess.run(["systemctl", "restart", "zivpn"])
-        except Exception as e:
-            print("ZiVPN add error:", e)
-        uid_str = password
+        # ZiVPN engine not installed on this server: refuse to sell dead accounts.
+        print(f"ZIVPN UNAVAILABLE: rejected account {user}")
+        return "", "", ""
 
     elif proto == "wg":
         try:
@@ -982,6 +979,17 @@ async def finish_buy_flow(update: Update, context: ContextTypes.DEFAULT_TYPE, ip
     # Execute system provisioning
     uid_res, exp_str, conf_link = execute_system_create(proto, user, password, days=days, ip_limit=ip_limit, quota=quota, user_id=u.id, user_name=u.username or u.first_name)
 
+    if not uid_res:
+        # Refund on failed provisioning (member paid already)
+        if u.id != ADMIN_ID:
+            update_user_balance(u.id, total_cost)
+        await load_msg.edit_text(
+            "❌ <b>Provisioning gagal — protokol tidak tersedia di server ini.</b>\nSaldo dikembalikan penuh.",
+            reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("« KEMBALI KE MENU", callback_data="menu_start")]]),
+            parse_mode="HTML"
+        )
+        return ConversationHandler.END
+
     # Format result
     if proto == "ssh":
         card = format_ssh_account(user, password, exp_str, ip_limit=ip_limit, quota=quota)
@@ -1080,6 +1088,14 @@ async def execute_trial(update: Update, context: ContextTypes.DEFAULT_TYPE):
     exp_str = exp_dt.strftime("%d/%m/%Y %H:%M:%S WIB")
     
     uid_res, exp_s, conf_link = execute_system_create(proto, t_id, t_pass, days=1, ip_limit=1, quota="1 GB", user_id=u.id, exp_override=exp_str, user_name=u.username or u.first_name)
+
+    if not uid_res:
+        await load_msg.edit_text(
+            "❌ <b>Protokol tidak tersedia di server ini.</b>\nSilakan pilih protokol lain.",
+            reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("« KEMBALI KE MENU", callback_data="menu_start")]]),
+            parse_mode="HTML"
+        )
+        return
 
     # Catat log trial
     try:
@@ -1260,6 +1276,17 @@ async def server_status_menu(update: Update, context: ContextTypes.DEFAULT_TYPE)
 
     st = get_server_stats()
     now_time = datetime.datetime.now().strftime("%H:%M:%S")
+
+    def svc_status(srv):
+        try:
+            r = subprocess.run(["systemctl", "is-active", srv], capture_output=True, text=True, timeout=5)
+            s = r.stdout.strip()
+            if s == "active":
+                return "🟢 RUNNING"
+            return f"🔴 {s.upper() if s else 'UNKNOWN'}"
+        except Exception:
+            return "🔴 UNKNOWN"
+
     msg = f"""┌〔 🌐 <b>STATUS TELEMETRI SERVER</b> 〕
 ├ 🌍 <b>Domain</b>   : {DOMAIN}
 ├ ⏱️ <b>Uptime</b>   : {st['uptime']}
@@ -1267,21 +1294,24 @@ async def server_status_menu(update: Update, context: ContextTypes.DEFAULT_TYPE)
 └────────────────────────
 
 ┌〔 ⚙️ <b>ENGINE TUNNELING DAEMONS</b> 〕
-├ ⚡ <b>Xray Core TLS (443)</b> : 🟢 RUNNING
-├ 🌐 <b>OpenSSH Server (80)</b> : 🟢 RUNNING
-├ 📡 <b>Dropbear SSH (109)</b>  : 🟢 RUNNING
-├ 🔄 <b>WS-SSH Proxy SSL</b>    : 🟢 RUNNING
-├ 🎮 <b>UDP ZiVPN Engine</b>    : 🟢 RUNNING
-├ 🛡️ <b>WireGuard Kernel</b>     : 🟢 RUNNING
-├ 🤖 <b>Shiro Bot Daemon</b>    : 🟢 RUNNING
-└ 🛡️ <b>Auto Guard Service</b>  : 🟢 RUNNING
+├ ⚡ <b>Xray Core TLS (443)</b> : {svc_status('xray')}
+├ 🌐 <b>OpenSSH Server (22)</b>  : {svc_status('ssh')}
+├ 📡 <b>Dropbear SSH (109)</b>  : {svc_status('dropbear')}
+├ 🔄 <b>WS-SSH Proxy SSL</b>    : {svc_status('ws-dropbear')}
+├ 🎮 <b>UDP BadVPN GW</b>       : {svc_status('badvpn-udpgw')}
+├ 🛡️ <b>WireGuard Kernel</b>   : {svc_status('wg-quick@wg0')}
+├ 🤖 <b>Shiro Bot Daemon</b>    : {svc_status('shirobot')}
+└ 🛡️ <b>Auto Guard Service</b>  : {svc_status('shiro-guard')}
 
 ┌〔 📊 <b>DATABASE METRICS</b> 〕
 ├ 👥 <b>Total Member Bot</b>    : {st['total_users']} User
 └ 📦 <b>Total Akun Aktif</b>    : {st['total_acc']} Akun"""
 
-    kb = [[InlineKeyboardButton("« KEMBALI", callback_data="menu_start")]]
-    await query.edit_message_text(msg, reply_markup=InlineKeyboardMarkup(kb), parse_mode="HTML")
+    kb = [[InlineKeyboardButton("🔄 REFRESH", callback_data="menu_server_status")], [InlineKeyboardButton("« KEMBALI", callback_data="menu_start")]]
+    try:
+        await query.edit_message_text(msg, reply_markup=InlineKeyboardMarkup(kb), parse_mode="HTML")
+    except BadRequest:
+        pass
 
 # Admin Master Panel
 async def admin_topup_prompt(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -1772,7 +1802,7 @@ Ketik <b>Kuota Data</b> (Contoh: <code>100 GB</code>, <code>50 GB</code>, atau <
             c.execute("""INSERT OR REPLACE INTO accounts 
                 (user_id, username, protocol, uuid_or_pass, exp_date, password, days, quota_gb, ip_limit, uuid, config_link, used_bytes, used_gb)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 0.0)""",
-                (u_id, f"{clean_user}-{p_type}" if p_type != "ssh" else clean_user, p_type, secret_val, exp_str, secret_val, days, quota, ip_limit, secret_val, ""))
+                (u_id, clean_user, p_type, secret_val, exp_str, secret_val, days, quota, ip_limit, secret_val, ""))
         conn.commit()
         conn.close()
 
@@ -2173,6 +2203,16 @@ async def cancel_renew(update: Update, context: ContextTypes.DEFAULT_TYPE):
     return ConversationHandler.END
 
 # ================= MAIN APPLICATION =================
+
+async def error_handler(update, context):
+    """Swallow benign Telegram API errors, log the rest."""
+    e = context.error
+    if isinstance(e, BadRequest) and ("Message is not modified" in str(e) or "message to edit not found" in str(e) or "Message is empty" in str(e)):
+        return
+    if isinstance(e, TimedOut):
+        return
+    print(f"BOT ERROR: {type(e).__name__}: {e}")
+
 def main():
     init_db()
     token_to_use = _db_boot("bot_token", BOT_TOKEN)
@@ -2205,6 +2245,7 @@ def main():
     )
 
     # Register Handlers
+    app.add_error_handler(error_handler)
     app.add_handler(CommandHandler("start", start_cmd))
     app.add_handler(CommandHandler("menu", start_cmd))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, admin_custom_input), group=1)

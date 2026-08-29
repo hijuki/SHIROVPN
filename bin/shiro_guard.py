@@ -50,8 +50,10 @@ def auto_heal_services():
     for srv in services:
         try:
             res = subprocess.run(["systemctl", "is-active", srv], capture_output=True, text=True)
-            if res.stdout.strip() != "active":
-                print(f"[AUTO-HEAL] Service {srv} is inactive/failed. Restarting immediately...")
+            state = res.stdout.strip()
+            # only restart on hard-fail; skip transient states to avoid race loops
+            if state in ("failed", "inactive"):
+                print(f"[AUTO-HEAL] Service {srv} is {state}. Restarting immediately...")
                 subprocess.run(["systemctl", "restart", srv], capture_output=True)
         except Exception as e:
             print(f"[AUTO-HEAL] Error checking {srv}: {e}")
@@ -187,7 +189,9 @@ def check_expired_accounts():
                 is_expired = False
                 exp_dt = None
 
-                # Format 1: 30 Minutes / Menit with (HH:MM:SS) or (HH:MM)
+                # Format 1: 30 Menit (HH:MM WIB) — legacy trial format WITHOUT a date.
+                # If the parsed time is more than 35 min in the future, the account was
+                # created on a PREVIOUS day (trial cap = 30 min) => long expired.
                 if "(" in clean_exp and ":" in clean_exp:
                     m = re.search(r'\((\d+):(\d+)(?::(\d+))?', clean_exp)
                     if m:
@@ -195,6 +199,8 @@ def check_expired_accounts():
                         sec = int(m.group(3)) if m.group(3) else 0
                         today = datetime.date.today()
                         exp_dt = datetime.datetime(today.year, today.month, today.day, h, mn, sec)
+                        if (exp_dt - now).total_seconds() > 35 * 60:
+                            exp_dt -= datetime.timedelta(days=1)
                         if now >= exp_dt:
                             is_expired = True
                 # Format 2: DD/MM/YYYY HH:MM:SS or DD/MM/YYYY HH:MM
@@ -216,7 +222,7 @@ def check_expired_accounts():
                 # H-1 Reminder Check (24 hours prior to expiration)
                 if not is_expired and exp_dt:
                     time_left = (exp_dt - now).total_seconds()
-                    if 0 < time_left <= 86400 and acc_id not in REMINDED_ACCOUNTS and not clean_exp.startswith("30 Menit"):
+                    if 0 < time_left <= 86400 and acc_id not in REMINDED_ACCOUNTS and "Menit" not in clean_exp:
                         REMINDED_ACCOUNTS.add(acc_id)
                         bot_user_tag = get_setting("admin_user", "@vpnshirobot").replace("@", "")
                         hours_left = max(1, int(time_left // 3600))

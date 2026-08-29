@@ -13,6 +13,8 @@ import sqlite3
 import subprocess
 import time
 
+IPTABLES = "/usr/sbin/iptables-legacy"  # ponytail: kernel 7.0 nft_compat rejects -m owner; legacy ip_tables works
+
 DB_PATH = "/var/lib/shirobot.db"
 XRAY_BIN = "/usr/local/bin/xray"
 XRAY_API = "127.0.0.1:10085"
@@ -27,10 +29,14 @@ def db():
 def init_ssh_iptables_chain():
     """Ensure SHIRO_SSH accounting chain exists and is attached to OUTPUT & INPUT (RETURN only, no drop)."""
     try:
-        subprocess.run(["iptables", "-N", "SHIRO_SSH"], capture_output=True)
-        out_chk = subprocess.run(["iptables", "-C", "OUTPUT", "-j", "SHIRO_SSH"], capture_output=True)
+        subprocess.run([IPTABLES, "-N", "SHIRO_SSH"], capture_output=True)
+        # INPUT jump must NEVER be added: xt_owner is only valid in OUTPUT/POSTROUTING.
+        # A stray INPUT jump makes every owner-rule insert fail with EINVAL.
+        while subprocess.run([IPTABLES, "-C", "INPUT", "-j", "SHIRO_SSH"], capture_output=True).returncode == 0:
+            subprocess.run([IPTABLES, "-D", "INPUT", "-j", "SHIRO_SSH"], capture_output=True)
+        out_chk = subprocess.run([IPTABLES, "-C", "OUTPUT", "-j", "SHIRO_SSH"], capture_output=True)
         if out_chk.returncode != 0:
-            subprocess.run(["iptables", "-I", "OUTPUT", "1", "-j", "SHIRO_SSH"], capture_output=True)
+            subprocess.run([IPTABLES, "-I", "OUTPUT", "1", "-j", "SHIRO_SSH"], capture_output=True)
     except Exception:
         pass
 
@@ -44,14 +50,14 @@ def sync_ssh_iptables_rules():
         conn.close()
 
         # Get existing rules in SHIRO_SSH
-        out = subprocess.run(["iptables", "-L", "SHIRO_SSH", "-n"], capture_output=True, text=True).stdout
-        existing_uids = set(re.findall(r"OWNER UID match (\d+)", out))
+        out = subprocess.run([IPTABLES, "-L", "SHIRO_SSH", "-n"], capture_output=True, text=True).stdout
+        existing_uids = set(re.findall(r"[Oo][Ww][Nn][Ee][Rr] UID match (\d+)", out))
 
         for u in ssh_users:
             try:
                 p_uid = str(pwd.getpwnam(u).pw_uid)
                 if p_uid not in existing_uids:
-                    subprocess.run(["iptables", "-A", "SHIRO_SSH", "-m", "owner", "--uid-owner", p_uid, "-j", "RETURN"], capture_output=True)
+                    subprocess.run([IPTABLES, "-A", "SHIRO_SSH", "-m", "owner", "--uid-owner", p_uid, "-j", "RETURN"], capture_output=True)
             except KeyError:
                 continue
     except Exception:
@@ -61,10 +67,10 @@ def sync_ssh_iptables_rules():
 def collect_ssh():
     totals = {}
     try:
-        out = subprocess.run(["iptables", "-L", "SHIRO_SSH", "-v", "-n", "-x"], capture_output=True, text=True).stdout
+        out = subprocess.run([IPTABLES, "-L", "SHIRO_SSH", "-v", "-n", "-x"], capture_output=True, text=True).stdout
         uid_bytes = {}
         for line in out.strip().splitlines():
-            m = re.search(r"^\s*\d+\s+(\d+)\s+RETURN.*OWNER UID match (\d+)", line)
+            m = re.search(r"^\s*\d+\s+(\d+)\s+RETURN.*[Oo][Ww][Nn][Ee][Rr] UID match (\d+)", line)
             if m:
                 b, uid = int(m.group(1)), int(m.group(2))
                 uid_bytes[uid] = uid_bytes.get(uid, 0) + b
