@@ -279,107 +279,96 @@ def format_ssh_account(user, password, exp_str, ip_limit=2, quota="100 GB"):
     _, _, q_ratio, q_bar, _ = get_account_quota_info(user)
     domain_val = get_setting("domain", DOMAIN)
     return f"""╭━━━━━━━━━━━━━━━━━━━━━━╮
-      🚀 <b>ꜱꜱʜ ᴡꜱ ꜱꜱʟ ᴀᴄᴄᴏᴜɴᴛ</b>
+      🚀 <b>SSH WS SSL</b> 🚀
 ╰━━━━━━━━━━━━━━━━━━━━━━╯
 
-┌〔 📄 <b>ᴀᴄᴄᴏᴜɴᴛ ɪɴꜰᴏ</b> 〕
-├ 👤 <b>ᴜꜱᴇʀɴᴀᴍᴇ</b> : <code>{user}</code>
-├ 🔑 <b>ᴘᴀꜱꜱᴡᴏʀᴅ</b> : <code>{password}</code>
-├ 📅 <b>ᴇxᴘɪʀᴇᴅ</b>  : <code>{exp_str}</code>
-├ 🌐 <b>ɪᴘ ʟɪᴍɪᴛ</b> : {ip_limit} IP
-├ 📦 <b>ǫᴜᴏᴛᴀ</b>    : {q_ratio}
-├ 📊 <b>ᴘʀᴏɢʀᴇꜱꜱ</b>  : <code>{q_bar}</code>
-└ 🟢 <b>ꜱᴛᴀᴛᴜꜱ</b>   : <code>ACTIVE</code>
+┌〔 📄 <b>INFORMASI AKUN</b> 〕
+├ 👤 <b>Username</b> : <code>{user}</code>
+├ 🔑 <b>Password</b> : <code>{password}</code>
+├ 📅 <b>Expired</b>  : <code>{exp_str}</code>
+├ 🌐 <b>IP Limit</b> : {ip_limit} IP
+├ 📦 <b>Kuota</b>    : {q_ratio} {q_bar}
+└ 🟢 <b>Status</b>   : <code>ACTIVE</code>
+
+┌〔 🌍 <b>SERVER</b> 〕
+├ 🌐 <b>Domain</b>    : <code>{domain_val}</code>
+├ 📡 <b>Lokasi</b>    : UpCloud Singapore 🇸🇬
+└ 🧭 <b>IP Server</b> : <code>{domain_val}</code>
 
 ━━━━━━━━━━━━━━━━━━━━━━
 
-┌〔 🌍 <b>ꜱᴇʀᴠᴇʀ</b> 〕
-├ 🌐 <b>ᴅᴏᴍᴀɪɴ</b>      : <code>{DOMAIN}</code>
-├ 🌍 <b>ɪꜱᴘ</b>         : UpCloud Singapore 🇸🇬
-└ 🧭 <b>ɪᴘ ꜱᴇʀᴠᴇʀ</b>   : <code>{DOMAIN}</code>
+🔌 <b>PORT</b>
+├ 🌐 <b>OpenSSH</b>    : <code>22</code>
+└ 🔐 <b>SSH WS TLS</b> : <code>443</code> (path /ssh-ws)
 
 ━━━━━━━━━━━━━━━━━━━━━━
 
-┌〔 🔌 <b>ᴘᴏʀᴛ</b> 〕
-├ 🌐 <b>ᴏᴘᴇɴꜱꜱʜ</b>     : 22
-└ 🔐 <b>ꜱꜱʜ ᴡꜱ ᴛʟꜱ</b>  : 443 (Path: /ssh-ws)
+📱 <b>HTTP CUSTOM</b>
+<code>{domain_val}:443@{user}:{password}</code>
 
 ━━━━━━━━━━━━━━━━━━━━━━
 
-📡 <b>ʜᴛᴛᴘ ᴄᴜꜱᴛᴏᴍ (ꜱꜱʜ ᴡꜱ)</b>
-<code>{DOMAIN}:443@{user}:{password}</code>
+📄 <b>PAYLOAD WS SSL</b>
+<code>GET /ssh-ws HTTP/1.1[crlf]Host: {domain_val}[crlf]Upgrade: websocket[crlf][crlf]</code>
 
 ━━━━━━━━━━━━━━━━━━━━━━
-
-📄 <b>ᴘᴀʏʟᴏᴀᴅ ᴡꜱ ꜱꜱʟ</b>
-<code>GET /ssh-ws HTTP/1.1[crlf]Host: {DOMAIN}[crlf]Upgrade: websocket[crlf][crlf]</code>
-
-━━━━━━━━━━━━━━━━━━━━━━
-
-🎉 <b>ᴀᴄᴄᴏᴜɴᴛ ʙᴇʀʜᴀꜱɪʟ ᴅɪʙᴜᴀᴛ</b>
-🤝 <i>Terima kasih telah menggunakan layanan kami.</i>"""
+🎉 <b>Akun berhasil dibuat — selamat menggunakan!</b>"""
 
 def format_xray_account(proto, user, u_id, exp_str, ip_limit=2, quota="100 GB"):
     p_name = proto.upper()
     _, _, q_ratio, q_bar, _ = get_account_quota_info(user)
     domain_val = get_setting("domain", DOMAIN)
-    
+
     if proto == "vless":
-        link = f"vless://{u_id}@{DOMAIN}:443?path=%2Fvless&security=tls&encryption=none&type=ws&sni={DOMAIN}#{user}"
-        grpc_link = f"vless://{u_id}@{DOMAIN}:443?mode=gun&security=tls&encryption=none&type=grpc&serviceName=vless-grpc&sni={DOMAIN}#{user}-gRPC"
+        link = f"vless://{u_id}@{domain_val}:443?path=%2Fvless&security=tls&encryption=none&type=ws&sni={domain_val}#{user}"
+        grpc_link = f"vless://{u_id}@{domain_val}:443?mode=gun&security=tls&encryption=none&type=grpc&serviceName=vless-grpc&sni={domain_val}#{user}-gRPC"
     elif proto == "trojan":
-        link = f"trojan://{u_id}@{DOMAIN}:443?path=%2Ftrojan-ws&security=tls&type=ws&sni={DOMAIN}#{user}"
+        link = f"trojan://{u_id}@{domain_val}:443?path=%2Ftrojan-ws&security=tls&type=ws&sni={domain_val}#{user}"
         grpc_link = link
-    else: # vmess
-        vm_dict = {
-            "v": "2", "ps": user, "add": DOMAIN, "port": "443", "id": u_id,
-            "aid": "0", "net": "ws", "path": "/vmess", "type": "none",
-            "host": DOMAIN, "tls": "tls", "sni": DOMAIN
-        }
+    else:  # vmess
         import base64
+        vm_dict = {
+            "v": "2", "ps": user, "add": domain_val, "port": "443", "id": u_id,
+            "aid": "0", "net": "ws", "path": "/vmess", "type": "none",
+            "host": domain_val, "tls": "tls", "sni": domain_val
+        }
         link = "vmess://" + base64.b64encode(json.dumps(vm_dict).encode()).decode()
         grpc_link = link
 
-    return f"""╭━━━━━━━━━━━━━━━━━━━━━━╮
-      ⚡ <b>{p_name} ᴛʟꜱ ᴀᴄᴄᴏᴜɴᴛ</b>
-╰━━━━━━━━━━━━━━━━━━━━━━╯
+    grpc_section = ""
+    if proto == "vless":
+        grpc_section = f"""━━━━━━━━━━━━━━━━━━━━━━
 
-┌〔 📄 <b>ᴀᴄᴄᴏᴜɴᴛ ɪɴꜰᴏ</b> 〕
-├ 👤 <b>ᴜꜱᴇʀɴᴀᴍᴇ</b> : <code>{user}</code>
-├ 🔑 <b>ᴜᴜɪᴅ / ᴋᴇʏ</b>: <code>{u_id}</code>
-├ 📅 <b>ᴇxᴘɪʀᴇᴅ</b>  : <code>{exp_str}</code>
-├ 🌐 <b>ɪᴘ ʟɪᴍɪᴛ</b> : {ip_limit} IP
-├ 📦 <b>ǫᴜᴏᴛᴀ</b>    : {q_ratio}
-├ 📊 <b>ᴘʀᴏɢʀᴇꜱꜱ</b>  : <code>{q_bar}</code>
-└ 🟢 <b>ꜱᴛᴀᴛᴜꜱ</b>   : <code>ACTIVE</code>
-
-━━━━━━━━━━━━━━━━━━━━━━
-
-┌〔 🌍 <b>ꜱᴇʀᴠᴇʀ</b> 〕
-├ 🌐 <b>ᴅᴏᴍᴀɪɴ</b>      : <code>{DOMAIN}</code>
-├ 🌍 <b>ɪꜱᴘ</b>         : UpCloud Singapore 🇸🇬
-└ 🧭 <b>ɪᴘ ꜱᴇʀᴠᴇʀ</b>   : <code>{DOMAIN}</code>
-
-━━━━━━━━━━━━━━━━━━━━━━
-
-┌〔 🔌 <b>ᴘᴏʀᴛ</b> 〕
-├ 🔐 <b>ᴡꜱ ᴛʟꜱ</b> : 443 (Path: /{proto})
-└ 🚀 <b>ɢʀᴘᴄ</b>   : vless-grpc (ALPN h2)
-
-━━━━━━━━━━━━━━━━━━━━━━
-
-🔗 <b>ᴄᴏɴꜰɪɢ ᴜʀʟ (ᴡꜱ ᴛʟꜱ)</b>
-<code>{link}</code>
-
-━━━━━━━━━━━━━━━━━━━━━━
-
-🔗 <b>ᴄᴏɴꜰɪɢ ᴜʀʟ (ɢʀᴘᴄ ᴛʟꜱ)</b>
+🚀 <b>CONFIG gRPC TLS</b>
 <code>{grpc_link}</code>
 
+"""
+
+    return f"""╭━━━━━━━━━━━━━━━━━━━━━━╮
+    ⚡ <b>{p_name} TLS ACCOUNT</b> ⚡
+╰━━━━━━━━━━━━━━━━━━━━━━╯
+
+┌〔 📄 <b>INFORMASI AKUN</b> 〕
+├ 👤 <b>Username</b> : <code>{user}</code>
+├ 🔑 <b>UUID/Key</b> : <code>{u_id}</code>
+├ 📅 <b>Expired</b>  : <code>{exp_str}</code>
+├ 🌐 <b>IP Limit</b> : {ip_limit} IP
+├ 📦 <b>Kuota</b>    : {q_ratio} {q_bar}
+└ 🟢 <b>Status</b>   : <code>ACTIVE</code>
+
+┌〔 🌍 <b>SERVER</b> 〕
+├ 🌐 <b>Domain</b>    : <code>{domain_val}</code>
+├ 📡 <b>Lokasi</b>    : UpCloud Singapore 🇸🇬
+└ 🔌 <b>Port TLS</b>  : <code>443</code> (path /{proto})
+
 ━━━━━━━━━━━━━━━━━━━━━━
 
-🎉 <b>ᴀᴄᴄᴏᴜɴᴛ ʙᴇʀʜᴀꜱɪʟ ᴅɪʙᴜᴀᴛ</b>
-🤝 <i>Terima kasih telah menggunakan layanan kami.</i>"""
+📡 <b>CONFIG URL (WS TLS)</b>
+<code>{link}</code>
+
+{grpc_section}━━━━━━━━━━━━━━━━━━━━━━
+🔐 <i>Semua koneksi via 443 TLS — stabil &amp; anti blokir</i>
+━━━━━━━━━━━━━━━━━━━━━━"""
 
 def format_zivpn_account(user, password, exp_str, ip_limit=2, quota="100 GB"):
     _, _, q_ratio, q_bar, _ = get_account_quota_info(user)
@@ -546,82 +535,80 @@ def execute_system_create(proto, user, password, days=30, ip_limit=2, quota="100
 def format_all_in_one_account(user, ssh_password, xray_uuid, exp_str, ip_limit="2 IP", quota="100 GB"):
     domain_val = get_setting("domain", DOMAIN)
     admin_tag = get_setting("admin_user", ADMIN_USER)
+    _, _, q_ratio, q_bar, _ = get_account_quota_info(user)
 
     vless_ws = f"vless://{xray_uuid}@{domain_val}:443?path=%2Fvless&security=tls&encryption=none&type=ws&sni={domain_val}#{user}-VLESS"
     vless_grpc = f"vless://{xray_uuid}@{domain_val}:443?mode=gun&security=tls&encryption=none&type=grpc&serviceName=vless-grpc&sni={domain_val}#{user}-gRPC"
-    
+
     import base64
     raw_vmess = {"v": "2", "ps": f"{user}-VMESS", "add": domain_val, "port": "443", "id": xray_uuid, "aid": "0", "scy": "auto", "net": "ws", "type": "none", "host": domain_val, "path": "/vmess", "tls": "tls", "sni": domain_val}
     vmess_ws = f"vmess://{base64.b64encode(json.dumps(raw_vmess).encode()).decode()}"
-    
+
     trojan_ws = f"trojan://{xray_uuid}@{domain_val}:443?path=%2Ftrojan-ws&security=tls&type=ws&sni={domain_val}#{user}-TROJAN"
 
-    return f"""╭━━━━━━━━━━━━━━━━━━━━━━━━━━━━╮
-  🌟 <b>ᴀʟʟ-ɪɴ-ᴏɴᴇ ᴠɪᴘ ᴀᴄᴄᴏᴜɴᴛ</b> 🌟
-╰━━━━━━━━━━━━━━━━━━━━━━━━━━━━╯
+    return f"""╭━━━━━━━━━━━━━━━━━━━━━━╮
+      🌟 <b>VIP ALL-IN-ONE</b> 🌟
+╰━━━━━━━━━━━━━━━━━━━━━━╯
 
-┌〔 👤 <b>ɪɴꜰᴏʀᴍᴀꜱɪ ᴀᴋᴜɴ ᴍᴀꜱᴛᴇʀ</b> 〕
-├ 👤 <b>ᴜꜱᴇʀɴᴀᴍᴇ</b>  : <code>{user}</code>
-├ 🔑 <b>ꜱꜱʜ ᴘᴀꜱꜱ</b>  : <code>{ssh_password}</code>
-├ 🔐 <b>xʀᴀʏ ᴜᴜɪᴅ</b> : <code>{xray_uuid}</code>
-├ 📅 <b>ᴇxᴘɪʀᴇᴅ</b>   : <code>{exp_str}</code>
-├ 🌐 <b>ɪᴘ ʟɪᴍɪᴛ</b>  : {ip_limit}
-├ 📦 <b>ǫᴜᴏᴛᴀ</b>     : {quota}
-└ 🟢 <b>ꜱᴛᴀᴛᴜꜱ</b>    : <code>ACTIVE (ALL PROTOCOLS)</code>
+┌〔 📄 <b>INFORMASI AKUN</b> 〕
+├ 👤 <b>Username</b>  : <code>{user}</code>
+├ 🔑 <b>Password</b>  : <code>{ssh_password}</code>
+├ 🆔 <b>UUID</b>      : <code>{xray_uuid}</code>
+├ 📅 <b>Expired</b>   : <code>{exp_str}</code>
+├ 👥 <b>IP Limit</b>  : {ip_limit}
+├ 📦 <b>Kuota</b>     : {q_ratio} {q_bar}
+└ 🟢 <b>Status</b>    : <code>ACTIVE</code>
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-🌍 <b>ꜱᴇʀᴠᴇʀ:</b> <code>{domain_val}</code> (UpCloud Singapore 🇸🇬)
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+┌〔 🌍 <b>SERVER</b> 〕
+├ 🌐 <b>Domain</b>    : <code>{domain_val}</code>
+└ 📡 <b>Lokasi</b>    : UpCloud Singapore 🇸🇬
 
-🚀 <b>1. ꜱꜱʜ ᴡꜱ ᴛʟꜱ (+ ᴏᴘᴇɴꜱꜱʜ)</b>
-├ 🌐 <b>OpenSSH</b>: <code>22</code> | <b>SSH WS TLS</b>: <code>443</code> (/ssh-ws)
-├ 📱 <b>HTTP Custom:</b>
+━━━━━━━━━━━━━━━━━━━━━━
+
+🚀 <b>1. SSH &amp; OPENSSH</b>
+├ 🌐 <b>OpenSSH</b>   : <code>22</code>
+├ 🔐 <b>SSH WS TLS</b> : <code>443</code> (path /ssh-ws)
+├ 📱 <b>HTTP Custom</b> :
 <code>{domain_val}:443@{user}:{ssh_password}</code>
-└ 📄 <b>Payload WS SSL:</b>
+└ 📄 <b>Payload WS SSL</b> :
 <code>GET /ssh-ws HTTP/1.1[crlf]Host: {domain_val}[crlf]Upgrade: websocket[crlf][crlf]</code>
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+━━━━━━━━━━━━━━━━━━━━━━
 
-⚡ <b>2. ᴠʟᴇꜱꜱ ᴛʟꜱ (ᴡꜱ & ɢʀᴘᴄ)</b>
-├ 📡 <b>VLESS WS:</b>
+⚡ <b>2. VLESS TLS (WS &amp; gRPC)</b>
+├ 📡 <b>WS</b>   :
 <code>{vless_ws}</code>
-└ ⚡ <b>VLESS gRPC:</b>
+└ 🚀 <b>gRPC</b> :
 <code>{vless_grpc}</code>
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+━━━━━━━━━━━━━━━━━━━━━━
 
-🛡️ <b>3. ᴠᴍᴇꜱꜱ ᴛʟꜱ (ᴡꜱ)</b>
-└ 📡 <b>VMESS WS:</b>
+🛡️ <b>3. VMESS TLS (WS)</b>
+└ 📡 <b>WS</b> :
 <code>{vmess_ws}</code>
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+━━━━━━━━━━━━━━━━━━━━━━
 
-🔮 <b>4. ᴛʀᴏᴊᴀɴ ᴛʟꜱ (ᴡꜱ & ɢʀᴘᴄ)</b>
-└ 📡 <b>Trojan WS:</b>
+🔮 <b>4. TROJAN TLS (WS)</b>
+└ 📡 <b>WS</b> :
 <code>{trojan_ws}</code>
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-👑 <b>Admin:</b> {admin_tag} | 🛒 <b>Bot:</b> @vpnshirobot"""
+━━━━━━━━━━━━━━━━━━━━━━
+🔐 <i>Semua koneksi via 443 TLS — stabil &amp; anti blokir</i>
+👑 <b>Admin</b> : {admin_tag} | 🛒 <b>Bot</b> : @vpnshirobot"""
 
 def get_maintenance_card():
     domain_val = get_setting("domain", DOMAIN)
     admin_tag = get_setting("admin_user", ADMIN_USER)
-    return f"""╭━━━━━━━━━━━━━━━━━━━━━━╮
-  ⛔ <b>ꜱᴇʀᴠᴇʀ ᴍᴀɪɴᴛᴇɴᴀɴᴄᴇ</b> ⛔
-╰━━━━━━━━━━━━━━━━━━━━━━╯
+    return f"""━━━━━━━━━━━━━━━━━━━━━━
+    SEDANG MAINTENANCE
+━━━━━━━━━━━━━━━━━━━━━━
 
-┌〔 ⚠️ <b>ᴘᴇᴍᴇʟɪʜᴀʀᴀᴀɴ ꜱɪꜱᴛᴇᴍ</b> 〕
-├ 🛠️ <b>ꜱᴛᴀᴛᴜꜱ</b>   : Sedang Dalam Pemeliharaan
-├ 🌐 <b>ꜱᴇʀᴠᴇʀ</b>   : <code>{domain_val}</code>
-├ ⏱️ <b>ᴇꜱᴛɪᴍᴀꜱɪ</b> : Segera Kembali Normal
-└────────────────────────
+Server SHIRO VPN sedang dalam pemeliharaan.
+Order dibuka kembali setelah selesai.
 
-💡 <b>Informasi Penting:</b>
-• Layanan pembuatan & trial akun baru sementara dinonaktifkan.
-• Akun VPN yang sudah aktif tetap dapat digunakan seperti biasa.
-• Hubungi Admin untuk info lebih lanjut: {admin_tag}
-
-🤝 <i>Mohon maaf atas ketidaknyamanan ini.</i>"""
+Info: {admin_tag}
+━━━━━━━━━━━━━━━━━━━━━━"""
 
 # /start Dashboard with Slot Machine Reveal Loader
 async def start_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -651,27 +638,14 @@ async def start_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
             clean_vip_user = arg.replace("vip_", "").strip()
             conn = sqlite3.connect(DB_PATH)
             c = conn.cursor()
-            c.execute("SELECT username, protocol, uuid_or_pass, exp_date, password, ip_limit, quota_gb FROM accounts WHERE username=? OR username=?", (clean_vip_user, f"{clean_vip_user}-vless"))
-            rows = c.fetchall()
+            c.execute("SELECT password, uuid, exp_date, ip_limit, quota_gb FROM accounts WHERE username=? AND protocol='all_in_one'", (clean_vip_user,))
+            row = c.fetchone()
             conn.close()
-            if rows:
-                ssh_pass = ""
-                xray_uuid = ""
-                exp_str = ""
-                ip_l = "2 Device"
-                q_gb = "100 GB"
-                for r in rows:
-                    u_n, pr, u_p, e_d, p_w, il, qg = r
-                    exp_str = e_d
-                    ip_l = f"{il} Device" if il else "2 Device"
-                    q_gb = qg or "100 GB"
-                    if pr == "ssh":
-                        ssh_pass = p_w or u_p
-                    elif pr in ["vless", "vmess", "trojan"]:
-                        xray_uuid = u_p or p_w
-                if not ssh_pass: ssh_pass = xray_uuid
-                if not xray_uuid: xray_uuid = ssh_pass
-                card = format_all_in_one_account(clean_vip_user, ssh_pass, xray_uuid, exp_str, ip_limit=ip_l, quota=q_gb)
+            if row:
+                ssh_pass, xray_uuid, exp_str, il, qg = row
+                ip_l = f"{il} Device" if il else "2 Device"
+                q_gb = qg or "100 GB"
+                card = format_all_in_one_account(clean_vip_user, ssh_pass or xray_uuid, xray_uuid or ssh_pass, exp_str, ip_limit=ip_l, quota=q_gb)
                 if update.message:
                     await update.message.reply_text(card, parse_mode="HTML")
                 return
@@ -710,23 +684,23 @@ async def start_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     role_label = "👑 Owner / Admin" if user_data["role"] == "owner" else "👤 Member"
 
     dashboard_msg = f"""╭━━━━━━━━━━━━━━━━━━━━━━╮
-  ⚡ <b>ꜱʜɪʀᴏ ᴠᴘɴ ꜱᴛᴏʀᴇ ᴏꜰꜰɪᴄɪᴀʟ</b>
+    ⚡ <b>SHIRO VPN STORE</b> ⚡
 ╰━━━━━━━━━━━━━━━━━━━━━━╯
 
-┌〔 👤 <b>ɪɴꜰᴏʀᴍᴀꜱɪ ᴀᴋᴜɴ</b> 〕
-├ 💰 <b>ꜱᴀʟᴅᴏ</b>      : <b>Rp {user_data['balance']:,}</b>
-├ 👤 <b>ꜱᴛᴀᴛᴜꜱ</b>     : {role_label}
-├ 🌐 <b>ᴜꜱᴇʀɴᴀᴍᴇ</b>   : @{u.username or 'User'}
-└ 🆔 <b>ɪᴅ ᴜꜱᴇʀ</b>    : <code>{u.id}</code>
+┌〔 👤 <b>INFORMASI AKUN</b> 〕
+├ 💰 <b>Saldo</b>    : <b>Rp {user_data['balance']:,}</b>
+├ 👤 <b>Status</b>   : {role_label}
+├ 🌐 <b>Username</b> : @{u.username or 'User'}
+└ 🆔 <b>ID User</b>  : <code>{u.id}</code>
 
-┌〔 🌐 <b>ɪɴꜰᴏʀᴍᴀꜱɪ ꜱᴇʀᴠᴇʀ</b> 〕
-├ 🕒 <b>ᴡᴀᴋᴛᴜ</b>      : {now_wib}
-├ 📅 <b>ᴛᴀɴɢɢᴀʟ</b>    : {date_wib}
-├ 🖥️ <b>ꜱᴇʀᴠᴇʀ</b>     : 1 (Singapore 🇸🇬)
-├ 👥 <b>ᴛᴏᴛᴀʟ ᴜꜱᴇʀ</b> : {st['total_users']} User
-└ ⏱️ <b>ʙᴏᴛ ᴀᴋᴛɪꜰ</b>  : {st['uptime']}
+┌〔 🌐 <b>INFORMASI SERVER</b> 〕
+├ 🕒 <b>Waktu</b>    : {now_wib}
+├ 📅 <b>Tanggal</b>  : {date_wib}
+├ 🖥️ <b>Server</b>   : 1 (Singapore 🇸🇬)
+├ 👥 <b>Member</b>   : {st['total_users']} User
+└ ⏱️ <b>Bot Aktif</b> : {st['uptime']}
 
-┌〔 ☎️ <b>ʜᴜʙᴜɴɢɪ ᴀᴅᴍɪɴ</b> 〕
+┌〔 ☎️ <b>HUBUNGI ADMIN</b> 〕
 └ 📨 {get_setting('admin_user', ADMIN_USER)}
 
 ━━━━━━━━━━━━━━━━━━━━━━
@@ -794,24 +768,23 @@ async def buy_select_proto(update: Update, context: ContextTypes.DEFAULT_TYPE):
     conn.close()
 
     p_name = proto.upper()
-    msg = f"""🛒 <b>BUAT AKUN {p_name}</b>
+    msg = f"""━━━━━━━━━━━━━━━━━━━━━━
+   BUAT AKUN {p_name}
+━━━━━━━━━━━━━━━━━━━━━━
 
-╭━━━━━━━━━━━━━━━━━━━━━━╮
-  🌐 <b>ꜱɢ1 ꜱʜɪʀᴏ — {SERVER_INFO['country_name'].upper()}</b>
-╰━━━━━━━━━━━━━━━━━━━━━━╯
-├ 🌐 <b>ᴅᴏᴍᴀɪɴ</b>     : <code>{DOMAIN}</code>
-├ 📡 <b>ɪꜱᴘ</b>        : {SERVER_INFO['isp']}
-├ 💳 <b>ᴛᴀʀɪꜰ</b>      : Rp {p_price:,} / hari
-├ 🔐 <b>ʟɪᴍɪᴛ ɪᴘ</b>   : {ip_limit} Device
-├ 📦 <b>ǫᴜᴏᴛᴀ</b>      : {quota}
-├ 👥 <b>ᴀᴋᴛɪꜰ</b>      : {active_count} User
-└ 📌 <b>ꜱᴛᴀᴛᴜꜱ</b>     : 🟢 <code>TERSEDIA</code>
+Server : SG1 - Singapore
+Domain : {DOMAIN}
+ISP    : {SERVER_INFO['isp']}
+Tarif  : Rp {p_price:,} / hari
+Limit  : {ip_limit} Device
+Kuota  : {quota}
+Aktif  : {active_count} user
 
 ━━━━━━━━━━━━━━━━━━━━━━
-<i>Pilih server {p_name}:</i>"""
+Pilih server:"""
 
     kb = [
-        [InlineKeyboardButton("🇸🇬 SG1 SHIRO", callback_data="srv_sg1")],
+        [InlineKeyboardButton("SG1 - Singapore", callback_data="srv_sg1")],
         [InlineKeyboardButton("« KEMBALI", callback_data="menu_buy")]
     ]
     await query.edit_message_text(msg, reply_markup=InlineKeyboardMarkup(kb), parse_mode="HTML")
@@ -1138,7 +1111,8 @@ async def my_accounts_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
         aid, uname, proto, exp, ip_l, q_gb = r
         q_ratio = get_account_quota_info(uname)[2]
         dead = " ⛔" if proto in ("zivpn", "wg") else ""
-        btn_text = f"• {uname} ({proto.upper()}){dead} | Quota: {q_ratio}"
+        label = "ALL-IN-ONE" if proto == "all_in_one" else proto.upper()
+        btn_text = f"• {uname} ({label}){dead} | Quota: {q_ratio}"
         kb.append([InlineKeyboardButton(btn_text, callback_data=f"acc_view_{aid}")])
 
     kb.append([InlineKeyboardButton("« KEMBALI", callback_data="menu_start")])
@@ -1196,6 +1170,16 @@ async def account_detail_menu(update: Update, context: ContextTypes.DEFAULT_TYPE
     
     if proto == "ssh":
         card = format_ssh_account(uname, pwd or uid_p, exp_s, ip_limit=ip_l, quota=q_gb)
+    elif proto == "all_in_one":
+        # uuid kolom menyimpan xray uuid (fallback uid_p utk row lama)
+        conn2 = sqlite3.connect(DB_PATH)
+        c2 = conn2.cursor()
+        c2.execute("SELECT uuid, password FROM accounts WHERE id=?", (acc_id,))
+        r2 = c2.fetchone()
+        conn2.close()
+        x_uuid = (r2[0] if r2 and r2[0] else uid_p) or (pwd or uid_p)
+        s_pass = (r2[1] if r2 and r2[1] else pwd) or uid_p
+        card = format_all_in_one_account(uname, s_pass, x_uuid, exp_s, ip_limit=f"{ip_l} IP", quota=q_gb)
     elif proto in ["vless", "vmess", "trojan"]:
         card = format_xray_account(proto, uname, uid_p, exp_s, ip_limit=ip_l, quota=q_gb)
     elif proto == "zivpn":
@@ -1687,7 +1671,7 @@ async def admin_custom_input(update: Update, context: ContextTypes.DEFAULT_TYPE)
         
         context.user_data["vip_user"] = clean_user
         context.user_data["admin_typing_mode"] = "create_all_pass"
-        msg = f"""┌〔 🔑 <b>CUSTOM PASSWORD SSH & VIP</b> 〕
+        msg = f"""┌〔 🔑 <b>PASSWORD SSH (VIP ALL-IN-ONE)</b> 〕
 ├ 👤 <b>Username</b> : <code>{clean_user}</code>
 └────────────────────────
 
@@ -1702,7 +1686,7 @@ Ketik <b>Password SSH Custom</b> yang diinginkan (Contoh: <code>pass123</code>):
             ssh_pass = str(uuid.uuid4())[:8]
         context.user_data["vip_pass"] = ssh_pass
         context.user_data["admin_typing_mode"] = "create_all_days"
-        msg = f"""┌〔 📅 <b>MASA AKTIF AKUN VIP</b> 〕
+        msg = f"""┌〔 📅 <b>MASA AKTIF (VIP ALL-IN-ONE)</b> 〕
 ├ 👤 <b>Username</b> : <code>{clean_user}</code>
 ├ 🔑 <b>Password</b> : <code>{ssh_pass}</code>
 └────────────────────────
@@ -1788,40 +1772,37 @@ Ketik <b>Kuota Data</b> (Contoh: <code>100 GB</code>, <code>50 GB</code>, atau <
         except Exception as e:
             print("Xray VIP creation error:", e)
 
-        # 3. Save 4 accounts to SQLite DB
+        # 3. Save ONE all_in_one row (ssh pass in `password`, xray uuid in `uuid`)
         conn = sqlite3.connect(DB_PATH)
         c = conn.cursor()
-        for p_type in ["ssh", "vless", "vmess", "trojan"]:
-            secret_val = ssh_pass if p_type == "ssh" else xray_uuid
-            c.execute("""INSERT OR REPLACE INTO accounts 
-                (user_id, username, protocol, uuid_or_pass, exp_date, password, days, quota_gb, ip_limit, uuid, config_link, used_bytes, used_gb)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 0.0)""",
-                (u_id, clean_user, p_type, secret_val, exp_str, secret_val, days, quota, ip_limit, secret_val, ""))
+        c.execute("""INSERT OR REPLACE INTO accounts 
+            (user_id, username, protocol, uuid_or_pass, exp_date, password, days, quota_gb, ip_limit, uuid, config_link, used_bytes, used_gb)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 0.0)""",
+            (u_id, clean_user, "all_in_one", ssh_pass, exp_str, ssh_pass, days, quota, ip_limit, xray_uuid, ""))
         conn.commit()
         conn.close()
 
         vip_card = format_all_in_one_account(clean_user, ssh_pass, xray_uuid, exp_str, ip_limit=f"{ip_limit} Device", quota=quota)
         bot_tag = get_setting("bot_username", BOT_USERNAME).replace("@", "")
         
-        # Clean aesthetic share text for public groups
-        share_card = f"""╭━━━━━━━━━━━━━━━━━━━━━━━━━━━━╮
-  ⚡ <b>ꜰʀᴇᴇ ᴠɪᴘ ᴀʟʟ-ɪɴ-ᴏɴᴇ ᴛʀɪᴀʟ</b> ⚡
-╰━━━━━━━━━━━━━━━━━━━━━━━━━━━━╯
+        # Share card untuk publik (tanpa kredensial sensitif)
+        share_card = f"""╭━━━━━━━━━━━━━━━━━━━━━━╮
+   🌟 <b>VIP ALL-IN-ONE AKTIF</b> 🌟
+╰━━━━━━━━━━━━━━━━━━━━━━╯
 
-┌〔 👤 <b>ɪɴꜰᴏʀᴍᴀꜱɪ ᴀᴋᴜɴ ᴍᴀꜱᴛᴇʀ</b> 〕
-├ 👤 <b>ᴜꜱᴇʀɴᴀᴍᴇ</b>  : <code>{clean_user}</code>
-├ 🔑 <b>ᴘᴀꜱꜱᴡᴏʀᴅ</b>  : <code>{ssh_pass}</code>
-├ 🌐 <b>ꜱᴇʀᴠᴇʀ</b>    : <code>{get_setting('domain', DOMAIN)}</code> (Singapore 🇸🇬)
-├ 📅 <b>ᴇxᴘɪʀᴇᴅ</b>   : <code>{exp_str}</code> ({days} Hari)
-├ 📦 <b>ǫᴜᴏᴛᴀ</b>     : <b>{quota}</b>
-├ 👥 <b>ɪᴘ ʟɪᴍɪᴛ</b>  : <b>{ip_limit} Device</b>
-├ 🔌 <b>ꜱᴜᴘᴘᴏʀᴛ</b>   : <code>SSH WS, VLESS, VMESS, TROJAN</code>
-└ 🟢 <b>ꜱᴛᴀᴛᴜꜱ</b>    : <code>ACTIVE & READY TO USE</code>
+┌〔 👤 <b>INFORMASI AKUN</b> 〕
+├ 👤 <b>Username</b>  : <code>{clean_user}</code>
+├ 🌐 <b>Server</b>    : <code>{get_setting('domain', DOMAIN)}</code> (Singapore 🇸🇬)
+├ 📅 <b>Aktif</b>     : {days} Hari (s/d <code>{exp_str}</code>)
+├ 📦 <b>Kuota</b>     : <b>{quota}</b>
+├ 👥 <b>IP Limit</b>  : <b>{ip_limit} Device</b>
+├ 🔌 <b>Protocol</b>   : <code>SSH WS + VLESS + VMESS + TROJAN</code>
+└ 🟢 <b>Status</b>    : <code>ACTIVE &amp; READY</code>
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-📥 <b>ᴀᴍʙɪʟ ᴄᴏɴꜰɪɢ ʟᴇɴɢᴋᴀᴘ (ɪɴꜱᴛᴀɴ):</b>
-👉 <a href="https://t.me/{bot_tag}?start=vip_{clean_user}"><b>[ KLIK DISINI AMBIL SEMUA CONFIG ]</b></a>
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━"""
+━━━━━━━━━━━━━━━━━━━━━━
+📥 <b>AMBIL CONFIG LENGKAP:</b>
+👉 <a href="https://t.me/{bot_tag}?start=vip_{clean_user}"><b>[ KLIK DISINI — AMBIL SEMUA CONFIG ]</b></a>
+━━━━━━━━━━━━━━━━━━━━━━"""
         
         if update.message:
             await update.message.reply_text(
@@ -1871,26 +1852,7 @@ Ketik <b>Kuota Data</b> (Contoh: <code>100 GB</code>, <code>50 GB</code>, atau <
         except Exception as e:
             print("Delete Xray user error:", e)
         
-        # 3. ZiVPN remove
-        try:
-            if os.path.exists("/etc/zivpn/users.db"):
-                with open("/etc/zivpn/users.db", "r") as f:
-                    zlines = f.readlines()
-                with open("/etc/zivpn/users.db", "w") as f:
-                    for zl in zlines:
-                        if not zl.startswith(f"{clean_user}:"):
-                            f.write(zl)
-                subprocess.run(["systemctl", "restart", "zivpn"], capture_output=True)
-        except Exception:
-            pass
-
-        # 4. WireGuard remove
-        try:
-            subprocess.run(["python3", "/usr/local/bin/manage_wg.py", "del", clean_user], capture_output=True)
-        except Exception:
-            pass
-
-        # 5. SQLite DB purge
+        # 3. SQLite DB purge
         conn = sqlite3.connect(DB_PATH)
         c = conn.cursor()
         c.execute("DELETE FROM accounts WHERE username=? OR username LIKE ?", (clean_user, f"{clean_user}-%"))
@@ -1898,17 +1860,18 @@ Ketik <b>Kuota Data</b> (Contoh: <code>100 GB</code>, <code>50 GB</code>, atau <
         conn.commit()
         conn.close()
 
-        del_card = f"""╭━━━━━━━━━━━━━━━━━━━━━━━━━━━━╮
-  🗑️ <b>ᴀᴋᴜɴ ʙᴇʀʜᴀꜱɪʟ ᴅɪʜᴀᴘᴜꜱ ᴛᴏᴛᴀʟ</b>
-╰━━━━━━━━━━━━━━━━━━━━━━━━━━━━╯
+        del_card = f"""╭━━━━━━━━━━━━━━━━━━━━━━╮
+    🗑️ <b>AKUN DIHAPUS TOTAL</b> 🗑️
+╰━━━━━━━━━━━━━━━━━━━━━━╯
 
-┌〔 👤 <b>ᴅᴇᴛᴀɪʟ ᴘᴇɴɢʜᴀᴘᴜꜱᴀɴ</b> 〕
-├ 👤 <b>ᴜꜱᴇʀɴᴀᴍᴇ</b> : <code>{clean_user}</code>
-├ 🚀 <b>ꜱꜱʜ ʟɪɴᴜx</b> : <code>TERHAPUS (PURGED)</code>
-├ ⚡ <b>xʀᴀʏ ᴄᴏʀᴇ</b> : <code>TERHAPUS (VLESS/VMESS/TROJAN)</code>
-├ 🗄️ <b>ᴅᴀᴛᴀʙᴀꜱᴇ</b>  : <code>{deleted_count} Entri Dihapus</code>
-└ 🟢 <b>ꜱᴛᴀᴛᴜꜱ</b>    : <code>CLEANED COMPLETELY</code>
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━"""
+┌〔 📄 <b>DETAIL PENGHAPUSAN</b> 〕
+├ 👤 <b>Username</b>  : <code>{clean_user}</code>
+├ 🚀 <b>SSH Linux</b> : <code>TERHAPUS</code>
+├ ⚡ <b>Xray Core</b> : <code>TERHAPUS (VLESS/VMESS/TROJAN)</code>
+├ 🗄️ <b>Database</b>  : <code>{deleted_count} Entri Dihapus</code>
+└ 🟢 <b>Status</b>    : <code>CLEANED COMPLETELY</code>
+
+━━━━━━━━━━━━━━━━━━━━━━"""
         
         if update.message:
             await update.message.reply_text(
