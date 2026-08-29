@@ -44,8 +44,7 @@ REMINDED_ACCOUNTS = set()
 def auto_heal_services():
     """Monitors critical VPN core services and restarts them automatically if crashed."""
     services = [
-        "xray", "ssh", "dropbear", "ws-dropbear",
-        "badvpn-udpgw", "wg-quick@wg0", "shirobot"
+        "xray", "ssh", "ws-dropbear", "shirobot", "shiro-guard"
     ]
     for srv in services:
         try:

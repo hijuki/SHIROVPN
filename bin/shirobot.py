@@ -301,14 +301,12 @@ def format_ssh_account(user, password, exp_str, ip_limit=2, quota="100 GB"):
 ━━━━━━━━━━━━━━━━━━━━━━
 
 ┌〔 🔌 <b>ᴘᴏʀᴛ</b> 〕
-├ 🔐 <b>ᴛʟꜱ / ᴡꜱ ꜱꜱʟ</b> : 443 (Path: /ssh-ws)
 ├ 🌐 <b>ᴏᴘᴇɴꜱꜱʜ</b>     : 22
-├ 📡 <b>ᴅʀᴏᴘʙᴇᴀʀ</b>    : 109, 110
-└ 🎮 <b>ʙᴀᴅᴠᴘɴ ᴜᴅᴘ</b>  : 7300
+└ 🔐 <b>ꜱꜱʜ ᴡꜱ ᴛʟꜱ</b>  : 443 (Path: /ssh-ws)
 
 ━━━━━━━━━━━━━━━━━━━━━━
 
-📡 <b>ʜᴛᴛᴘ ᴄᴜꜱᴛᴏᴍ</b>
+📡 <b>ʜᴛᴛᴘ ᴄᴜꜱᴛᴏᴍ (ꜱꜱʜ ᴡꜱ)</b>
 <code>{DOMAIN}:443@{user}:{password}</code>
 
 ━━━━━━━━━━━━━━━━━━━━━━
@@ -365,9 +363,8 @@ def format_xray_account(proto, user, u_id, exp_str, ip_limit=2, quota="100 GB"):
 ━━━━━━━━━━━━━━━━━━━━━━
 
 ┌〔 🔌 <b>ᴘᴏʀᴛ</b> 〕
-├ 🔐 <b>ᴛʟꜱ / ᴡꜱ ꜱꜱʟ</b> : 443 (Path: /{proto})
-├ 🚀 <b>ɢʀᴘᴄ ꜱᴇʀᴠɪᴄᴇ</b>: {proto}-grpc (ALPN h2)
-└ 🎮 <b>ʙᴀᴅᴠᴘɴ ᴜᴅᴘ</b>  : 7300
+├ 🔐 <b>ᴡꜱ ᴛʟꜱ</b> : 443 (Path: /{proto})
+└ 🚀 <b>ɢʀᴘᴄ</b>   : vless-grpc (ALPN h2)
 
 ━━━━━━━━━━━━━━━━━━━━━━
 
@@ -499,12 +496,9 @@ def execute_system_create(proto, user, password, days=30, ip_limit=2, quota="100
         return "", "", ""
 
     elif proto == "wg":
-        try:
-            res = subprocess.run(["python3", "/usr/local/bin/manage_wg.py", "add", user], capture_output=True, text=True)
-            config_link = res.stdout.strip()
-        except Exception as e:
-            print("Wireguard add error:", e)
-        uid_str = user
+        # WireGuard UDP 51820 difilter provider — tidak bisa dipakai di server ini.
+        print(f"WG UNAVAILABLE (UDP filtered): rejected account {user}")
+        return "", "", ""
 
     # Save to SQLite
     conn = sqlite3.connect(DB_PATH)
@@ -561,7 +555,6 @@ def format_all_in_one_account(user, ssh_password, xray_uuid, exp_str, ip_limit="
     vmess_ws = f"vmess://{base64.b64encode(json.dumps(raw_vmess).encode()).decode()}"
     
     trojan_ws = f"trojan://{xray_uuid}@{domain_val}:443?path=%2Ftrojan-ws&security=tls&type=ws&sni={domain_val}#{user}-TROJAN"
-    trojan_grpc = f"trojan://{xray_uuid}@{domain_val}:443?mode=gun&security=tls&type=grpc&serviceName=trojan-grpc&sni={domain_val}#{user}-Trojan-gRPC"
 
     return f"""╭━━━━━━━━━━━━━━━━━━━━━━━━━━━━╮
   🌟 <b>ᴀʟʟ-ɪɴ-ᴏɴᴇ ᴠɪᴘ ᴀᴄᴄᴏᴜɴᴛ</b> 🌟
@@ -580,11 +573,10 @@ def format_all_in_one_account(user, ssh_password, xray_uuid, exp_str, ip_limit="
 🌍 <b>ꜱᴇʀᴠᴇʀ:</b> <code>{domain_val}</code> (UpCloud Singapore 🇸🇬)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-🚀 <b>1. ꜱꜱʜ ᴡꜱ & ᴏᴘᴇɴꜱꜱʜ</b>
-├ 🔌 <b>Port TLS/WS</b>: <code>443</code> (/ssh-ws) | <b>OpenSSH</b>: <code>80, 22</code> | <b>Dropbear</b>: <code>109, 110</code>
-├ 🎮 <b>BadVPN UDP</b>: <code>7100-7900</code>
+🚀 <b>1. ꜱꜱʜ ᴡꜱ ᴛʟꜱ (+ ᴏᴘᴇɴꜱꜱʜ)</b>
+├ 🌐 <b>OpenSSH</b>: <code>22</code> | <b>SSH WS TLS</b>: <code>443</code> (/ssh-ws)
 ├ 📱 <b>HTTP Custom:</b>
-<code>{domain_val}:80@{user}:{ssh_password}</code>
+<code>{domain_val}:443@{user}:{ssh_password}</code>
 └ 📄 <b>Payload WS SSL:</b>
 <code>GET /ssh-ws HTTP/1.1[crlf]Host: {domain_val}[crlf]Upgrade: websocket[crlf][crlf]</code>
 
@@ -605,10 +597,8 @@ def format_all_in_one_account(user, ssh_password, xray_uuid, exp_str, ip_limit="
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 🔮 <b>4. ᴛʀᴏᴊᴀɴ ᴛʟꜱ (ᴡꜱ & ɢʀᴘᴄ)</b>
-├ 📡 <b>Trojan WS:</b>
+└ 📡 <b>Trojan WS:</b>
 <code>{trojan_ws}</code>
-└ ⚡ <b>Trojan gRPC:</b>
-<code>{trojan_grpc}</code>
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 👑 <b>Admin:</b> {admin_tag} | 🛒 <b>Bot:</b> @vpnshirobot"""
@@ -699,8 +689,10 @@ async def start_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     if row:
                         uname, proto, uid_p, exp_s, pwd, ip_l, q_gb, cfg_l, auto_rn = row
                         if proto == "ssh": card = format_ssh_account(uname, pwd or uid_p, exp_s, ip_limit=ip_l, quota=q_gb)
-                        elif proto == "zivpn": card = format_zivpn_account(uname, pwd or uid_p, exp_s, ip_limit=ip_l, quota=q_gb)
-                        elif proto == "wg": card = format_wg_account(uname, exp_s, cfg_l, ip_limit=ip_l, quota=q_gb)
+                        elif proto in ("zivpn", "wg"):
+                            card = (f"⚠️ <b>Protokol {proto.upper()} sudah dihentikan.</b>\n"
+                                    f"👤 Akun: <code>{uname}</code>\n"
+                                    f"Akun ini tidak dapat digunakan lagi. Hubungi admin untuk penggantian.")
                         else: card = format_xray_account(proto, uname, uid_p, exp_s, ip_limit=ip_l, quota=q_gb)
                         ar_btn_text = "⚙️ AUTO-RENEW: ON (🟢 AKTIF)" if auto_rn == 1 else "⚙️ AUTO-RENEW: OFF (⚪ NONAKTIF)"
                         kb = [
@@ -1145,7 +1137,8 @@ async def my_accounts_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
     for r in rows:
         aid, uname, proto, exp, ip_l, q_gb = r
         q_ratio = get_account_quota_info(uname)[2]
-        btn_text = f"• {uname} ({proto.upper()}) | Quota: {q_ratio}"
+        dead = " ⛔" if proto in ("zivpn", "wg") else ""
+        btn_text = f"• {uname} ({proto.upper()}){dead} | Quota: {q_ratio}"
         kb.append([InlineKeyboardButton(btn_text, callback_data=f"acc_view_{aid}")])
 
     kb.append([InlineKeyboardButton("« KEMBALI", callback_data="menu_start")])
@@ -1251,15 +1244,17 @@ async def help_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
 └────────────────────────
 
 📱 <b>Aplikasi yang Didukung:</b>
-• <b>Android:</b> HTTP Custom, v2rayNG, NetMod, OpenTunnel, ZiVPN, WireGuard
-• <b>iOS:</b> Streisand, V2Box, Shadowrocket, WireGuard
-• <b>Windows:</b> NetMod Syna, v2rayN, WireGuard Client
+• <b>Android:</b> HTTP Custom, v2rayNG, NetMod, OpenTunnel
+• <b>iOS:</b> Streisand, V2Box, Shadowrocket
+• <b>Windows:</b> NetMod Syna, v2rayN
 
 💡 <b>Cara Import Akun:</b>
-1. Buat akun di menu <b>[BUAT AKUN]</b>.
-2. Salin config / URL link (VLESS / VMESS / TROJAN / WIREGUARD).
+1. Buat akun di menu <b>[BELI AKUN]</b> atau <b>[TRIAL]</b>.
+2. Salin config / URL link (VLESS / VMESS / TROJAN), atau payload SSH WS.
 3. Buka aplikasi VPN Anda -> <b>Import Config from Clipboard</b>.
 4. Klik tombol <b>Connect</b>.
+
+⚠️ <b>Catatan:</b> Semua koneksi via port <code>443 TLS</code> (stabil & anti-blokir).
 
 Hubungi admin jika mengalami kendala: {get_setting('admin_user', ADMIN_USER)}"""
     kb = [[InlineKeyboardButton("« KEMBALI", callback_data="menu_start")]]
@@ -1291,15 +1286,14 @@ async def server_status_menu(update: Update, context: ContextTypes.DEFAULT_TYPE)
 ├ 🌍 <b>Domain</b>   : {DOMAIN}
 ├ ⏱️ <b>Uptime</b>   : {st['uptime']}
 ├ 🕒 <b>Waktu</b>    : {now_time} WIB
+├ 🔌 <b>Port Publik</b>: 22, 443
 └────────────────────────
 
 ┌〔 ⚙️ <b>ENGINE TUNNELING DAEMONS</b> 〕
 ├ ⚡ <b>Xray Core TLS (443)</b> : {svc_status('xray')}
 ├ 🌐 <b>OpenSSH Server (22)</b>  : {svc_status('ssh')}
-├ 📡 <b>Dropbear SSH (109)</b>  : {svc_status('dropbear')}
 ├ 🔄 <b>WS-SSH Proxy SSL</b>    : {svc_status('ws-dropbear')}
-├ 🎮 <b>UDP BadVPN GW</b>       : {svc_status('badvpn-udpgw')}
-├ 🛡️ <b>WireGuard Kernel</b>   : {svc_status('wg-quick@wg0')}
+├ 📊 <b>Traffic Collector</b>   : {svc_status('shiro-traffic')}
 ├ 🤖 <b>Shiro Bot Daemon</b>    : {svc_status('shirobot')}
 └ 🛡️ <b>Auto Guard Service</b>  : {svc_status('shiro-guard')}
 
